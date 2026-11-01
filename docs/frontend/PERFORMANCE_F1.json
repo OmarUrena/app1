@@ -1,0 +1,34 @@
+{
+  "date": "2026-10-29",
+  "route": "/",
+  "environment": "Local Next.js development; Chromium; no CPU/network throttling. Server and image optimizer already warmed by E2E. One fresh browser context per viewport. These samples are not production benchmarks or Lighthouse results.",
+  "samples": [
+    {
+      "width": 360,
+      "domContentLoadedMs": 343,
+      "responseEndMs": 300,
+      "firstContentfulPaintMs": 532,
+      "largestContentfulPaintMs": 532,
+      "imageEncodedBytesAtMeasurement": 59328,
+      "imageRequestsAtMeasurement": 2
+    },
+    {
+      "width": 768,
+      "domContentLoadedMs": 380,
+      "responseEndMs": 199,
+      "firstContentfulPaintMs": 392,
+      "largestContentfulPaintMs": 808,
+      "imageEncodedBytesAtMeasurement": 134616,
+      "imageRequestsAtMeasurement": 2
+    },
+    {
+      "width": 1280,
+      "domContentLoadedMs": 253,
+      "responseEndMs": 160,
+      "firstContentfulPaintMs": 260,
+      "largestContentfulPaintMs": 860,
+      "imageEncodedBytesAtMeasurement": 134616,
+      "imageRequestsAtMeasurement": 2
+    }
+  ]
+}

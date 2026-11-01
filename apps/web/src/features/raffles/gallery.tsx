@@ -1,0 +1,12 @@
+"use client";
+
+import Image from "next/image";
+import { useState } from "react";
+import type { RaffleImage } from "./types";
+
+export function PrizeGallery({ images, title }: { images: RaffleImage[]; title: string }) {
+  const [index, setIndex] = useState(0);
+  const current = images[index] ?? images[0];
+  if (!current) return <div className="gallery-placeholder">Imagen del premio pendiente.</div>;
+  return <div className="prize-gallery"><div className="gallery-main"><Image src={current.src} alt={current.alt} fill sizes="(max-width: 1023px) calc(100vw - 32px), 680px" preload className="prize-image" /><span className="gallery-label">Imagen conceptual · DEMO</span></div>{images.length > 1 && <div className="gallery-thumbnails" role="group" aria-label={`Imágenes de ${title}`}>{images.map((image, item) => <button type="button" key={image.src} aria-label={`Ver imagen ${item + 1} de ${title}`} aria-pressed={item === index} onClick={() => setIndex(item)}><Image src={image.src} alt="" width={100} height={70} /></button>)}</div>}</div>;
+}

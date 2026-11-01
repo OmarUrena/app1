@@ -1,0 +1,36 @@
+{
+  "name": "@sorteos/api",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "node --watch -r ts-node/register src/main.ts",
+    "start": "node dist/main.js",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "node -r ts-node/register --test test/foundation.test.ts",
+    "test:integration": "node -r ts-node/register --test test/database.integration.ts",
+    "openapi": "node -r ts-node/register src/export-openapi.ts"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.1.26",
+    "@nestjs/core": "^11.1.26",
+    "@nestjs/platform-express": "^11.1.26",
+    "@nestjs/swagger": "^11.2.0",
+    "@nestjs/throttler": "^6.4.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.4",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "helmet": "^8.1.0",
+    "pg": "^8.19.0",
+    "pino": "^10.4.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2"
+  },
+  "devDependencies": {
+    "@nestjs/testing": "^11.1.26",
+    "@types/express": "^5.0.6",
+    "@types/pg": "^8.6.1",
+    "ts-node": "^10.9.2"
+  }
+}

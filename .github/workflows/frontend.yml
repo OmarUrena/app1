@@ -1,0 +1,35 @@
+name: Frontend
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm generate:api
+      - run: pnpm --filter @sorteos/web test:core
+      - run: pnpm --filter @sorteos/web lint
+      - run: pnpm --filter @sorteos/web typecheck
+      - run: pnpm --filter @sorteos/web test
+      - run: pnpm --filter @sorteos/web build
+        env:
+          API_MODE: live
+          API_BASE_URL: https://api.example.test/api/v1
+          APP_ENV: production
+          NEXT_TELEMETRY_DISABLED: 1
+      - run: pnpm --filter @sorteos/web exec playwright install --with-deps chromium
+      - run: pnpm --filter @sorteos/web test:e2e
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-browser-results
+          path: apps/web/test-results/
+          if-no-files-found: ignore

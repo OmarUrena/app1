@@ -1,0 +1,14 @@
+{
+  "name": "@sorteos/api-client",
+  "version": "0.1.0",
+  "private": true,
+  "types": "src/index.ts",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "generate": "openapi-typescript ../../docs/openapi.json -o src/generated.ts",
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": { "openapi-fetch": "^0.15.0" },
+  "devDependencies": { "openapi-typescript": "^7.10.1" }
+}

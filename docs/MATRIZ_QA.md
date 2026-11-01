@@ -1,0 +1,102 @@
+# Matriz de QA y criterios de aceptación — App Sorteos
+
+**Entornos de pruebas:** base de datos aislada, archivos y bancos ficticios, sin transferencias reales. Los escenarios deben ejecutarse automáticamente siempre que sea viable. Reportar PASS/FAIL/SKIPPED con evidencia; nunca marcar PASS por inferencia.
+
+## A. Creación y configuración de rifas
+
+| ID | Escenario | Esperado | Fase |
+|---|---|---|---|
+| R01 | Admin crea rifa de 10 números | Exactamente 10 tickets numerados 0..9, sin duplicados | B1/B2 |
+| R02 | Rifa con 10,000 números | Rango interno 0..9999; UI `0000`..`9999` | B1/F2 |
+| R03 | Rifa con N configurable no potencia de 10 (ej. 137) | 137 números válidos 0..136, formato consistente | B1/F2 |
+| R04 | Cantidad 0, negativa, no entera o demasiado grande | 422/validación según límite razonado | B1/B2 |
+| R05 | Rifa DRAFT/PAUSED/CLOSED | No admite nuevos holds | B2/B3 |
+| R06 | Cambiar precio/N tras primer hold | Bloqueado o sujeto a política aprobada y auditada | B2 |
+| R07 | Cliente ve % vendido | No mezcla reservado con vendido | B2/F2 |
+
+## B. Pre-reservas
+
+| ID | Escenario | Esperado | Fase |
+|---|---|---|---|
+| H01 | Hold de 3 en rifa de 10 | 3 HELD, 7 AVAILABLE, sin número visible | B3/F3 |
+| H02 | Dos holds simultáneos de los últimos 3 | Máximo uno confirmado, nunca sobreventa | B3 |
+| H03 | 50–100 peticiones paralelas | Estados coherentes, ningún ticket repetido | B3/B7 |
+| H04 | Expira un hold sin orden | Solo sus tickets pasan a AVAILABLE | B3 |
+| H05 | Expira hold ya consumido | No afecta orden ni RESERVED | B3/B4 |
+| H06 | Reintento misma idempotencyKey | Mismo hold; sin inventario adicional bloqueado | B3 |
+| H07 | Cambiar contenido con misma key | 409 y no cambia inventario | B3 |
+| H08 | Sesión ajena intenta leer/cancelar hold | 404/403; sin exposición de números | B3 |
+| H09 | Spam masivo de holds | Throttle/rate limits; señales de abuso | B3/B7 |
+| H10 | Contador expira con pestaña suspendida y retomada | Calcula contra tiempo absoluto server y bloquea submit | F3 |
+
+## C. Orden única + comprobante
+
+| ID | Escenario | Esperado | Fase |
+|---|---|---|---|
+| O01 | Formulario completo + archivo válido | 1 orden PENDING_REVIEW + pago REPORTED + q RESERVED | B4/F4 |
+| O02 | Sin archivo de comprobante | No crea orden | B4/F4 |
+| O03 | Archivo PDF/PNG/JPG válido menor al límite | Aceptado en storage privado | B4 |
+| O04 | Archivo .exe, SVG, contenido MIME falso o >5MB | Rechazado con 415/422/413 | B4 |
+| O05 | Cliente manipula total/price/quantity en request | Backend usa snapshot de hold, no total cliente | B4 |
+| O06 | Hold venció mientras transfería | No orden ni números; error + camino a conciliación | B4/F4 |
+| O07 | Doble clic + envío concurrente mismo idempotencyKey | 1 orden, 1 archivo lógico, mismo conjunto de números | B4/F4 |
+| O08 | Se pierde respuesta HTTP tras commit; retry | Recuperación idempotente de misma orden, sin doble venta | B4 |
+| O09 | Storage no disponible | No orden completa ni venta; error comprensible | B4 |
+| O10 | DB rollback tras upload temporal | No orden; archivo se programa para limpieza | B4 |
+| O11 | Cookie/sesión ajena solicita orden por código | 404/403 sin filtrar datos | B4 |
+| O12 | La orden recién enviada se visualiza | Muestra números reservados y «pendiente», nunca «pagado» | F4 |
+| O13 | Refresh tras confirmación | Consulta protegida, o vía de recuperación segura | B4/F4 |
+| O14 | Precio con centavos y múltiples boletos | Cálculo exacto en minor units; sin float | B4 |
+
+## D. Revisión y pagos
+
+| ID | Escenario | Esperado | Fase |
+|---|---|---|---|
+| P01 | Admin entra a bandeja pendiente | Datos correctos, filtros/paginación | B5/F5 |
+| P02 | Visitante no autenticado intenta aprobar | 401/403 | B5 |
+| P03 | Admin sin rol activo intenta aprobar | 403 | B5 |
+| P04 | Admin aprueba pago confirmado | Orden PAID, TODOS los tickets SOLD, auditoría | B5 |
+| P05 | Repetir aprobación de misma orden | Idempotente, no duplica transacciones | B5 |
+| P06 | Dos admins aprueban/cancelan simultáneamente | Una sola transición válida; conflicto explícito | B5/B7 |
+| P07 | Comprobante sospechoso/rechazado | NEEDS_RESOLUTION y tickets continúan RESERVED | B5 |
+| P08 | Orden NEEDS_RESOLUTION sin intervención por meses | **NO autoexpira** ni libera tickets | B5/B7 |
+| P09 | Cancelar sin prueba de conciliación | Prohibido; no libera tickets | B5 |
+| P10 | Cancelación después de verificar no pago/reembolso | Cambia a CANCELLED y libera exactamente q | B5 |
+| P11 | Intentar cancelación directa de PAID | Bloqueado; procedimiento extraordinario fuera de alcance | B5 |
+| P12 | Reuso mismo comprobante o referencia | Señal de posible duplicación, sin aprobación automática | B5 |
+| P13 | Archivo comprobante público o firmado sin control | Debe fallar acceso no autorizado | B5/B7 |
+
+## E. Operaciones y seguridad
+
+| ID | Escenario | Esperado | Fase |
+|---|---|---|---|
+| S01 | Total disponible+held+reserved+sold | Igual a N por rifa siempre | B6/B7 |
+| S02 | Rifas con 100% comprometido y pendientes | Sin nuevos holds, NO declarar 100% vendido | B6/F6 |
+| S03 | Intentar cerrar/sortear con pendientes | Cierre operativo según política, sorteo bloqueado | B6 |
+| S04 | Filtro público por teléfono/código de orden adivinable | No divulga información de otros | B6 |
+| S05 | Secretos en bundle JS, logs o error HTTP | Ninguna credencial ni PII sensible | B7/F7 |
+| S06 | Restaurar backup en entorno aislado | Datos íntegros; procedimiento documentado | B7 |
+| S07 | 360px ancho: checkout, upload y confirmación | Sin scroll horizontal; teclado y lector operables | F7 |
+| S08 | 429, 500, conexión lenta, reintentos | UI coherente, sin éxito falso ni venta duplicada | F7 |
+| S09 | Producción recibe `API_MODE=mock` | Build/config prohibidos; no datos ficticios | F7/F8 |
+| S10 | Migrar staging + rollback autorizado | Sin perder órdenes pagadas | B8 |
+
+## Invariantes automáticas (ejecutar contra DB)
+
+1. Para cada rifa: `N = count(tickets)` si no se define estado VOID.
+2. `count(distinct (raffle_id,number))=count(tickets)`.
+3. Cada ticket tiene **exactamente un** estado actual; no puede apuntar a dos órdenes activas.
+4. `PAID` implica `quantity` tickets SOLD; `PENDING_REVIEW`, `UNDER_REVIEW` y `NEEDS_RESOLUTION` implican `quantity` tickets RESERVED.
+5. `EXPIRED` aplica a holds, **nunca a orders** pendientes con comprobante.
+6. `amountMinor = quantity × unitPriceMinor` con matemáticas exactas y rango seguro.
+7. Toda transacción relevante cuenta con audit log.
+8. `receipt_storage_path` siempre es privado y pertenece a la orden, jamás URL pública permanente.
+9. Las cifras públicas no cuentan comprobantes recibidos como dinero confirmado.
+10. Pruebas de aleatoriedad evalúan ausencia de sesgo de la implementación sin prometer certificación formal (distribución aproximada en simulación y prueba del algoritmo).
+
+## Evidencia que Codex debe adjuntar al completar una fase
+- Comando de test y salida resumida (p. ej. `pnpm test:integration`).
+- Nombre del archivo de prueba y escenario cubierto, o descripción de prueba manual cuando sea inevitable.
+- Reporte de test concurrente: solicitudes, aceptadas, rechazadas, duplicados, invariantes, duración, percentiles observados (sin números inventados).
+- Capturas móviles/escritorio de pantalla relevante si infraestructura lo permite.
+- Lista explícita de SKIPPED y motivo (p. ej. Supabase sin credenciales, no simular como PASS).
