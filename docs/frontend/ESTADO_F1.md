@@ -1,3 +1,5 @@
+> Actualización F2 (2026-11-01): el catálogo ya está conectado y verificado con B2. Ver [ESTADO_F2.md](ESTADO_F2.md). El contenido siguiente conserva el registro de F1.
+
 # Frontend F1 — rediseño de App Sorteos
 
 ## Actualización de cierre — 2026-11-01

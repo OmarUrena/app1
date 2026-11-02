@@ -5,7 +5,7 @@ export type RaffleView = {
   slug: string;
   title: string;
   subtitle: string;
-  category: "Vehículos" | "Tecnología";
+  category?: "Vehículos" | "Tecnología";
   description: string;
   images: RaffleImage[];
   status: RaffleStatus;
@@ -20,7 +20,15 @@ export type RaffleView = {
   available: number;
   highlights: string[];
   rules: string[];
+  demo?: boolean;
+  asOf?: string;
+  numberWidth?: number;
+  startsAt?: string | null;
+  endsAt?: string | null;
+  prize?: string;
 };
+
+export type RaffleSummary = Pick<RaffleView, "slug" | "title" | "images" | "status" | "ticketPriceMinor" | "total" | "sold" | "available" | "demo" | "featured"> & Partial<Pick<RaffleView, "category" | "subtitle">>;
 
 export function availabilityLabel(raffle: Pick<RaffleView, "status" | "available">) {
   if (raffle.status === "PAUSED") return "Pausada";

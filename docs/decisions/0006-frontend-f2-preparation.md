@@ -1,4 +1,6 @@
-# ADR 0005 — Cierre de F1 y preparación F2 sin contrato B2
+# ADR 0006 — Cierre de F1 y preparación F2 sin contrato B2
+
+Renumerada al integrar B2 para conservar el número 0005 del ADR de catálogo backend. El contexto siguiente corresponde a la preparación anterior a B2.
 
 Fecha: 2026-11-01. Estado: aceptada para preparación; integración F2 pendiente de B2.
 

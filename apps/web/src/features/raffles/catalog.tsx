@@ -14,7 +14,7 @@ export function RaffleCatalog({ raffles }: { raffles: RaffleView[] }) {
   const [filter, setFilter] = useState<typeof filters[number]>("Todas");
   const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es");
   const items = raffles.filter(raffle => {
-    const matches = normalize(`${raffle.title} ${raffle.category}`).includes(normalize(query.trim()));
+    const matches = normalize(`${raffle.title} ${raffle.category ?? ""}`).includes(normalize(query.trim()));
     const state = filter === "Todas" || (filter === "Con cupo" && raffle.status === "PUBLISHED" && raffle.available > 0) || (filter === "Pausadas" && raffle.status === "PAUSED") || (filter === "Sin cupo" && raffle.status === "PUBLISHED" && raffle.available === 0) || (filter === "Cerradas" && raffle.status === "CLOSED");
     return matches && state;
   });

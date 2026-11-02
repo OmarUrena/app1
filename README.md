@@ -1,8 +1,26 @@
 # App Sorteos — paquete de implementación progresiva para Codex
 
-**Fecha de especificación:** 2026-10-26  
-**Estado:** backend B0 validado localmente el 2026-10-29: lint, typecheck, build, OpenAPI/cliente y 17 pruebas aprobadas.  
+**Fecha de especificación:** 2026-10-26
+**Estado:** frontend F2 conectado al contrato B2 (2026-11-01). Ver [validación y límites F2](docs/frontend/ESTADO_F2.md). Esta rama requiere integrar el backend B1/B2 del checkout principal; no contiene su implementación.
 **Idioma de producto:** español (República Dominicana); moneda DOP (RD$).
+
+## Iniciar el frontend conectado
+
+Desde la raíz original del proyecto, en PowerShell:
+
+```powershell
+Set-Location -LiteralPath ".tmp/frontend-f2"
+$env:API_MODE = "live"
+$env:APP_ENV = "development"
+$env:API_BASE_URL = "http://127.0.0.1:3001/api/v1"
+npm run dev --workspace @sorteos/web -- --port 3104
+```
+
+Web: http://127.0.0.1:3104. Iniciar B2 en otra terminal desde el checkout principal con su DB local configurada. Sin API se muestra un error recuperable; sin rifas publicadas se muestra un catálogo vacío. El seed B1 no publica rifas. La compra todavía no está habilitada.
+
+`apps/web/.env.example` utiliza `API_MODE=live`. Para revisar únicamente las pantallas de demostración en desarrollo, cambiar explícitamente a `mock`. `PUBLIC_PRIZE_IMAGE_BASE_URL` admite el directorio HTTPS del bucket público de premios; vacío muestra placeholders. Reiniciar Next al configurarlo. Nunca introducir claves privilegiadas ni el bucket privado de comprobantes.
+
+Controles: `npm run lint --workspace @sorteos/web`, `npm run typecheck --workspace @sorteos/web`, `npm run test --workspace @sorteos/web`, `npm run test:core --workspace @sorteos/web`, `npm run api:check-catalog --workspace @sorteos/web` y `npm run test:e2e --workspace @sorteos/web`. La integración local adicional se explica en [ESTADO_F2](docs/frontend/ESTADO_F2.md).
 
 ## Propósito
 Construir una plataforma web propia para vender boletos de rifas de **un único organizador**, con una compra en un solo formulario, transferencias bancarias con comprobante obligatorio, asignación aleatoria de números, y validación manual del pago desde un panel administrativo.

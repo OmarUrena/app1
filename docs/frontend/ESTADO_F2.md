@@ -1,73 +1,73 @@
-# Frontend F2 — preparación e integración pendiente
+# Frontend F2 — catálogo conectado a B2
 
-Fecha: 2026-11-01. Rama: feat/frontend-f2. Worktree: .tmp/frontend-f2, separado de feat/backend-b0.
+Fecha: 2026-11-01. Rama: `feat/frontend-f2`. Worktree: `.tmp/frontend-f2`.
 
-**Estado: preparación iniciada; integración real bloqueada por B2. No se declara F2 completado.** El propietario confirmó que la otra sesión continuará B1/B2. No se implementa backend desde esta sesión.
+**Implementación F2 conectada y validada localmente con B2.** El backend ya está disponible en el checkout principal `feat/backend-b2`, aún sin commit al iniciar esta integración. Se preservan todos sus archivos y cambios. Esta rama incorpora copias exactas del contrato Markdown, OpenAPI y cliente compartido generados por esa sesión; no modifica manualmente los DTOs ni implementa backend. Para integrar las ramas debe incluirse la implementación B1/B2, no solo sus tipos.
 
-## Evidencia de la dependencia
+## Funcionalidad
 
-Se inspeccionaron código NestJS, OpenAPI generado, cliente compartido y ramas remotas. El único commit disponible era 8b66eb6, con B0 y las rutas de salud. El catálogo del contrato Markdown sigue siendo una especificación de B2, no una implementación disponible.
+- Inicio y listado consultan `GET /api/v1/raffles`. Paginación real de doce elementos, navegación anterior/siguiente y manejo de página vacía. B2 no tiene búsqueda ni filtros públicos: esas herramientas siguen exclusivamente en demo.
+- Detalle por slug mediante `GET /api/v1/raffles/{slug}` y snapshot de `GET /api/v1/raffles/{slug}/availability`. Todos los conteos del detalle proceden del mismo snapshot; se muestran `asOf`, vendidos confirmados, reservados, cupo temporal vigente y disponibles, con actualización manual. No se confunde agotamiento con venta total.
+- Precio entero en centavos, premio, reglas conservadas como texto, límites, formato `0..N-1` con ceros y fechas de inicio/cierre de participación cuando existen. No se inventa una fecha de sorteo ni especificaciones del premio.
+- Listado y detalle usan modelos de presentación separados. La tarjeta no inventa reservas o held ausentes en el resumen. No hay categoría editorial ni insignias DEMO en datos live.
+- Acceso tipado `bankAccounts()` a `GET /api/v1/bank-accounts/public`, preparado y probado. No se invoca durante la navegación de catálogo ni se muestran instrucciones de transferencia antes del flujo con cupo F3/F4.
+- Render por solicitud con `connection()` y lecturas `no-store`, timeout de diez segundos y sin reintentos automáticos. El detalle y sus metadatos deduplican lectura durante el mismo render, sin caché compartida entre visitantes.
+- Estado vacío real separado de error; caída/429 con mensajes seguros, referencia de solicitud y botón de reintento. El detalle tiene su propio manejo de fallo. Un 404 incluye explicación de posible pausa/cierre; B2 no publica esos estados ni permite distinguirlos por rutas públicas.
+- Imágenes con Next Image, directorio HTTPS público explícito y fallback ante ausencia/error. Sin configuración se muestran placeholders; ninguna foto demo sustituye la de un premio real.
+- `API_MODE=live` predeterminado en `.env.example`. Demo explícito de desarrollo conservado y bloqueado en producción.
 
-Al cerrar esta entrega, la otra sesión ya había comenzado feat/backend-b1 en el checkout principal. Sus cambios locales permanecen fuera del worktree frontend; el contrato de catálogo B2 sigue pendiente. El ADR de esta preparación se numeró 0005 para no coincidir con el ADR 0004 de persistencia backend.
+Compra continúa deshabilitada porque B3/B4 todavía no forman parte de esta entrega. Cambiar cantidad es una vista previa local: no crea hold, importe congelado, orden ni números. No se aceptan transferencias.
 
-El comando desde raíz:
+## Iniciar la web
+
+Desde la raíz original, en PowerShell:
 
 ```powershell
-npm run api:check-catalog --workspace @sorteos/web
+Set-Location -LiteralPath '.tmp/frontend-f2'
+$env:API_MODE = 'live'
+$env:APP_ENV = 'development'
+$env:API_BASE_URL = 'http://127.0.0.1:3001/api/v1'
+npm run dev --workspace @sorteos/web -- --port 3104
 ```
 
-lee docs/openapi.json y señala las rutas/respuestas públicas ausentes. El script directo devuelve código 2 cuando B2 falta, 1 si no puede leer el esquema y 0 solo cuando encuentra las cuatro respuestas JSON 200. Este control no genera un esquema alternativo, DTOs manuales ni una API simulada. No se añade como requisito de la CI de F1 mientras B2 no exista.
+Abrir http://127.0.0.1:3104. Iniciar la API B2 en otra terminal desde el checkout principal con la base local preparada según su documentación. Una DB sin rifas publicadas muestra vacío; el seed B1 no publica sus ejemplos. No se activaron cuentas ni administradores en el proyecto del usuario.
 
-Rutas ausentes en la revisión:
+Para imágenes, configurar `PUBLIC_PRIZE_IMAGE_BASE_URL` con el directorio HTTPS exacto del bucket público de premios, sin comodines, credenciales, query ni fragmentos. Ejemplo de forma, sin proyecto real: `https://media.example.test/storage/v1/object/public/raffle-media`. Reiniciar Next después de cambiarlo. Nunca usar bucket de comprobantes ni URLs firmadas. La variable es del servidor, sin prefijo `NEXT_PUBLIC_`.
 
-| Método | Ruta OpenAPI | Necesidad |
-| --- | --- | --- |
-| GET | /api/v1/raffles | Catálogo paginado |
-| GET | /api/v1/raffles/{slug} | Detalle público |
-| GET | /api/v1/raffles/{slug}/availability | Inventario vigente y asOf |
-| GET | /api/v1/bank-accounts/public | Cuentas publicadas cuando el flujo posterior las necesite |
+## Verificación
 
-## Preparación implementada
-
-- Se corrigió el prefijo del cliente web: API_BASE_URL incluye /api/v1, pero los paths generados ya lo incluyen. El adaptador entrega solo el origen al cliente compartido y valida la configuración; health se solicita a /api/v1/health, sin duplicar el prefijo.
-- Se conserva credentials=include y no-store, sin reintentos automáticos. Los errores JSON se traducen a mensajes seguros; si un proxy devuelve HTML, no se muestra ese cuerpo. Se permite correlación segura desde X-Request-Id cuando no existe en el envelope.
-- Los errores 429/403 sin JSON mantienen un mensaje pertinente. Las pruebas usan la ruta health realmente presente en OpenAPI; no se ejecutan llamadas a rutas de negocio inexistentes.
-- El error boundary usa retry de la versión instalada de Next.js para volver a solicitar el segmento, en lugar de limitarse a limpiar el error local. Una prueba verifica la acción y que no se muestre un detalle interno.
-- Se cerraron incidencias de interacción inicial y teclado de F1, y se amplió la matriz de navegadores. Ver la actualización de ESTADO_F1.md.
-
-## Entrega requerida de backend antes de integrar
-
-1. B1/B2 implementados y verificados en una rama integrable, con seed de demostración y las rutas públicas indicadas.
-2. docs/openapi.json generado desde NestJS y packages/api-client/src/generated.ts sincronizado. No añadir paths al cliente a mano ni usar casts para saltar el tipado.
-3. DTOs con dinero entero, estados, nulabilidad de fechas/imágenes, paginación y errores uniformes revisados contra CONTRATO_API.md.
-4. Origen de API local/staging, origen web admitido por CORS y orígenes autorizados de imágenes públicas. No utilizar comodines generales en Next Image ni URLs privadas de comprobantes.
-5. Regla explícita de visibilidad pública para PAUSED/CLOSED/histórico. DRAFT y datos de compradores no se exponen por accidente al añadir filtros.
-
-## Trabajo F2 que seguirá a esa entrega
-
-| Parte | Criterio de implementación |
+| Comando desde el worktree | Resultado |
 | --- | --- |
-| Lectura server-side | Operaciones del cliente generado; impedir que la consulta se congele como el armazón estático durante el build |
-| Modelo de tarjeta | Mapear los datos reales de lista; no rellenar reservas o held con ceros inventados porque el resumen no los devuelve |
-| Detalle/inventario | Usar el snapshot completo de availability para sus conteos y asOf; no mezclar cifras de respuestas tomadas en momentos diferentes |
-| Texto y marca demo | Separar modo visual demo de datos reales: quitar rótulos de demo únicamente a datos conectados y autorizados |
-| Paginación y búsqueda | Respetar paginación del servidor. No presentar una búsqueda sobre la página cargada como búsqueda de todo el catálogo |
-| Precio y fechas | Precio desde API; cierre de participación y fecha de sorteo son conceptos distintos. No inventar una fecha de sorteo a partir de endsAt |
-| Rango de numeración | Mostrar el formato configurado sin convertirlo en selector de números |
-| Imágenes | Next Image con orígenes publicados explícitamente autorizados y fallback honesto si falta el activo |
-| Caché | Inicialmente lecturas sin caché para garantizar actualización tras administración; disponibilidad vuelve a validarse en backend al crear un hold en F3 |
-| Errores | Vacío real, 404, pausa, cierre, agotamiento, 429 y caída de API con recuperación visible; nunca fallback a fixtures en live |
-| Cuentas bancarias | Consumir solo el endpoint público autorizado cuando corresponda; no habilitar transferencias antes de contar con cupo y el flujo B3/B4 |
-| Validación | Entorno backend real de prueba: cambios admin reflejados, coherencia de cantidades, render ante errores y ausencia de datos ficticios en producción |
+| `npm run api:check-catalog --workspace @sorteos/web` | PASS: cuatro respuestas públicas JSON 200 presentes |
+| `npm run lint --workspace @sorteos/web` | PASS sin advertencias de ESLint |
+| `npm run typecheck --workspace @sorteos/web` | PASS |
+| `npm run test --workspace @sorteos/web` | PASS: 20 pruebas |
+| `npm run test:core --workspace @sorteos/web` | PASS: 6 pruebas |
+| `npm run test:e2e --workspace @sorteos/web -- --max-failures=3` | PASS: 70 pruebas, cinco perfiles |
+| `npm run build --workspace @sorteos/web` | PASS, modo live/production; inicio, listado y detalle dinámicos |
+| `npm run test:live --workspace @sorteos/web` | PASS: un escenario integrado, incluidos caída, recuperación y HTTP 429 |
 
-Los campos editoriales de F1, como category/subtitle/highlights, no están garantizados en el contrato inicial. Se retirarán o se sustituirán por textos genéricos honestos si el DTO no los ofrece; no se inferirán especificaciones del premio.
+Total: **97 pruebas aprobadas**, sin omisiones (20 unitarias, 6 de núcleo, 70 de navegador y 1 escenario de integración B2). El build usa URL HTTPS de ejemplo sin servicio activo y demuestra que el catálogo no se congela durante prerender. No demuestra conectividad remota. La primera ejecución completa de Playwright bajo sandbox hizo caer Firefox al abrir página; la ejecución final con permisos de navegador pasó sin modificar ni omitir casos.
 
-No se habilita el CTA de compra por tener catálogo. Holds y formulario único requieren sus fases backend y frontend posteriores. La cuenta publicada no es una prueba de pago y el comprobante no confirma el ingreso.
+La integración real crea una DB efímera mediante el setup de pruebas B2, aplica sus migraciones, publica trece rifas TEST por las rutas administrativas con JWT verificado y comprueba el vacío inicial, paginación, ausencia de demo, detalle en Chromium/Firefox/WebKit, HELD vigente frente a vencido, pausa/404, edición/reanudación, actualización manual, caída y recuperación. Los proveedores Auth/media son los fixtures exclusivos del test B2; NestJS y PostgreSQL son reales. Al terminar se elimina esa DB y su rol de login, no una base operativa. No se modifica el esquema del proyecto desde frontend.
 
-## Validación de esta preparación
+Para repetir esa integración opcional, iniciar PostgreSQL de pruebas en loopback y una única instancia Next de este worktree en 3105 con `API_MODE=live`, `APP_ENV=test`, `API_BASE_URL=http://127.0.0.1:3106/api/v1`. Después, desde el worktree:
 
-Las pruebas locales de núcleo y componentes cubren el cliente, el prefijo, cookies, caché, errores, correlación y reintentos. Se ejecutan con npm run test:core y npm run test --workspace @sorteos/web. Build y lint/typecheck se registran al cerrar los cambios.
+```powershell
+$env:TEST_DATABASE_URL = 'postgres://demo_test@127.0.0.1:54339/postgres'
+$env:BACKEND_CHECKOUT = 'C:\Users\Omar Ureña\Desktop\AppRifas'
+$env:PLAYWRIGHT_BROWSERS_PATH = 'C:\Users\Omar Ureña\Desktop\AppRifas\.tmp\playwright-browsers'
+npm run test:live --workspace @sorteos/web
+```
 
-La CI pública del commit base fue exitosa: [Frontend](https://github.com/OmarUrena/app1/actions/runs/41308070025), [Backend](https://github.com/OmarUrena/app1/actions/runs/41308070038). Estos resultados corresponden a 8b66eb6, no validan remotamente los cambios nuevos de esta rama.
+`TEST_DATABASE_URL` debe señalar exclusivamente una instancia local de pruebas. El harness reutiliza setup/cleanup de `apps/api/test/catalog.integration.ts` de B2, sin editarlo; falla si cambia ese punto de integración. El puerto 3106 debe estar libre; el test inicia y detiene su NestJS. No ejecutar simultáneamente otro `next dev` del mismo checkout: los tests visuales usan otro modo y requieren cerrar primero el servidor live.
 
-No hay cambios en API, migraciones, datos o despliegues. El siguiente paso es integrar B2, regenerar el cliente, volver a ejecutar api:check-catalog y completar las lecturas reales de F2.
+## Evidencia y límites
+
+Capturas locales en [screenshots/f2](screenshots/f2): vacío y catálogo móvil, detalle en escritorio/Firefox/WebKit móvil, error y límite de solicitudes. Muestran premios explícitamente TEST y placeholders porque el proveedor de medios del test es HTTP local, no un bucket HTTPS autorizado.
+
+Sin validación de Supabase remoto, fotos de un bucket real, Safari/iPhone físico, lector humano ni despliegue. Los navegadores automatizados verifican motores y tamaños, no dispositivos físicos. El aviso LCP ocasional de desarrollo en filtros demo no equivale a una medición Lighthouse; no se publica un nuevo puntaje de rendimiento.
+
+No se habilitaron compras, login administrativo ni mutaciones desde Next. No hay nueva migración frontend; B1/B2 conserva su recuperación y seed. Las CI remotas de la entrega nueva no se han ejecutado: la rama no se ha publicado.
+
+Siguiente fase: **F3, dependiente de B3**, cantidad y pre-reserva técnica antes de cualquier transferencia. Las cuentas bancarias solo aparecerán en ese flujo cuando el backend garantice el cupo. Ver [ADR 0007](../decisions/0007-frontend-live-catalog.md). La preparación anterior a B2 queda como registro histórico en [ADR 0006](../decisions/0006-frontend-f2-preparation.md).

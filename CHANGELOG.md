@@ -1,5 +1,14 @@
 # Changelog
 
+## Frontend F2 — 2026-11-01
+
+- Inicio, catálogo paginado y detalle conectados a B2 mediante cliente generado; snapshots del contrato sincronizados desde backend sin ediciones manuales.
+- Inventario coherente con disponibilidad, fecha de consulta y actualización manual; reglas, premio, límites, formato de números y fechas de participación reales.
+- Vacío, 404, caída y rate limit con mensajes seguros y recuperación; imágenes con directorio público autorizado y fallback.
+- Modo live predeterminado. Se conserva demo explícito de desarrollo; compra deshabilitada hasta B3/B4.
+- Pruebas unitarias y de navegador, con harness opcional NestJS/PostgreSQL local y capturas F2. Ver docs/frontend/ESTADO_F2.md.
+- ADR de preparación renumerado 0006 para no colisionar con B2; decisiones de integración en ADR 0007.
+
 ## 0.1.1 — 2026-10-29
 
 - Instalación pnpm con lockfile y acceso de red verificada; CI usa frozen lockfile.
