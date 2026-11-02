@@ -52,3 +52,14 @@ test('URL DB no puede sobrescribir opciones TLS', () => {
   }
   assert.equal(parseConfig({ DATABASE_CA: 'line1\\nline2' }).databaseCa, 'line1\nline2');
 });
+
+test('origen Auth fijo y bucket de premios no aceptan credenciales, rutas o HTTP remoto', () => {
+  for (const origin of ['http://remote.invalid','https://user:secret@project.invalid',
+    'https://project.invalid/path','https://project.invalid?token=bad']) {
+    assert.throws(()=>parseConfig({SUPABASE_URL:origin}));
+  }
+  for (const bucket of ['../receipts','raffle-media/receipts','', 'bad bucket']) {
+    assert.throws(()=>parseConfig({PUBLIC_RAFFLE_BUCKET:bucket}));
+  }
+  assert.equal(parseConfig({SUPABASE_URL:'https://project.supabase.co'}).supabaseUrl,'https://project.supabase.co');
+});

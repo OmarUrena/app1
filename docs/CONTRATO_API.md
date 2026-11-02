@@ -29,18 +29,25 @@
   `/api/v1/docs`. Ambos solo si Swagger está habilitado en desarrollo/test.
   Generación offline del esquema mediante `pnpm generate:api` (requiere dependencias).
 
-Las rutas de negocio descritas a continuación son objetivos de B2–B6;
-no se presentan como endpoints disponibles en B0.
+En B2 están implementados el catálogo, cuentas públicas y las rutas de administración
+de rifas detalladas más abajo. Holds, órdenes, revisión de pagos y reportes siguen
+siendo objetivos de B3–B6. El JSON OpenAPI contiene solo las rutas implementadas.
 
 ### `GET /raffles?page=1&pageSize=12`
 **200:** `{items:[{id,slug,title,prizeImageUrl,status,ticketPriceMinor,totalTickets,confirmedSoldCount,availableCount}],pagination:{...}}`.
 Solo rifas PUBLISHED (o histórico visible con control explícito). No divulgar titulares/compradores/números.
+En B2 solo PUBLISHED; `page>=1`, `pageSize` entre 1 y 100. `prizeImageUrl` puede
+ser null; las imágenes proceden del bucket público de premios configurado.
 
 ### `GET /raffles/:slug`
-**200:** `{id,slug,title,description,images:[{url,alt}],status,totalTickets,numberWidth,ticketPriceMinor,minPurchase,maxPurchase,rules,startsAt,endsAt,confirmedSoldCount,reservedCount,availableCount}`. Puede omitirse detalles sensibles no necesarios.
+**200:** `{id,slug,title,description,prize,prizeImageUrl,images:[{url,alt}],status,totalTickets,numberWidth,ticketPriceMinor,minPurchase,maxPurchase,rules,rulesVersion,startsAt,endsAt,confirmedSoldCount,reservedCount,availableCount}`.
+`startsAt` y `endsAt` admiten null; DRAFT/PAUSED/CLOSED responden 404 en rutas públicas.
 
 ### `GET /raffles/:slug/availability`
 **200:** `{total,available,held,reserved,sold,asOf}`. Invariante `total=available+held+reserved+sold` cuando no hay VOID. Lo único que garantiza compra es una pre-reserva exitosa.
+`held` solo cuenta pre-reservas vigentes; HELD vencidos se computan como disponibles
+sin cambiar inventario en el GET. La liberación transaccional se implementará en B3.
+RESERVED nunca se reclasifica por tiempo.
 
 ### `GET /bank-accounts/public`
 **200:** `{items:[{id,bankName,accountType,accountDisplay,holderName,currency:'DOP'}]}`. Solo cuentas publicadas por admin, datos destinados a recibir transferencias.
@@ -110,9 +117,63 @@ Requiere guest session propietaria y/o verificación OTP futura; no basta conoce
 
 ## Endpoints administrativos (JWT + admin_users activo + autorización)
 
+### Autenticación implementada en B2
+
+Enviar `Authorization: Bearer <access_token>` de Supabase Auth del proyecto
+configurado. Se verifican ES256/RS256, firma mediante JWKS fijo, emisor, audiencia
+authenticated, expiración, subject UUID y session_id. Además, se consulta
+`/auth/v1/user` con la clave publicable del servidor y se exige que el UUID
+coincida. Cada solicitud comprueba `admin_users.active` y rol en PostgreSQL;
+email, user_metadata, cookies isAdmin y flags del navegador no autorizan.
+
+Sin token/inválido: 401. Usuario Auth válido fuera de allowlist/inactivo: 403.
+Auth sin configurar o no disponible: 503 AUTH_UNAVAILABLE. No se expone login,
+signup ni bootstrap privilegiado por HTTP; F5 usará Supabase Auth y sesión SSR.
+El JWT no debe ir en URLs, logs ni localStorage del flujo de compra.
+
+OWNER y ADMIN pueden consultar, crear DRAFT, editar DRAFT/PAUSED y pausar.
+Solo OWNER publica o reanuda. Accesos y mutaciones se auditan sin guardar tokens.
+
+### Payload y respuestas de rifas — B2
+
+`POST /admin/raffles` recibe JSON: slug, title, description, prize, totalTickets,
+ticketPriceMinor (entero en centavos), minPurchase, maxPurchase, rules,
+rulesVersion; startsAt/endsAt opcionales y anulables; images opcional (máximo 8):
+`[{storageKey:'prizes/imagen-propia.webp',alt:'Descripción',rightsConfirmed:true}]`.
+No acepta status, números seleccionados ni campos de autorización. La creación
+de rifa y N boletos es atómica. Devuelve 201 con AdminRaffleDto.
+
+AdminRaffleDto contiene el detalle público más version, hasCommitments y media
+(`storageKey`, alt, rightsConfirmed). `GET /admin/raffles/:id` devuelve 200 con
+ese mismo DTO; `GET /admin/raffles` admite page/pageSize y status opcional.
+
+PATCH admite esos mismos campos como opcionales y responde 200. Solo fechas
+pueden ser null. N es inmutable por la decisión de B1; precio bloqueado desde el
+primer hold. Una rifa publicada se pausa antes de editar. Editar invalida su
+aprobación anterior. Los cambios de estado se hacen exclusivamente con acciones.
+
+Publicar/reanudar reciben obligatoriamente:
+
+```json
+{"rulesApproved":true,"requirementsReviewed":true,"mediaRightsConfirmed":true}
+```
+
+Es una declaración administrativa del propietario, no una certificación legal
+automática. Se requieren reglas, imágenes propias marcadas y objeto accesible
+con MIME de imagen en el bucket público. Se verifica HEAD fuera de la transacción
+y luego version bajo bloqueo; edición concurrente: 409 CONCURRENT_MODIFICATION.
+Publicar exige DRAFT; reanudar exige PAUSED. Pausar exige PUBLISHED y no necesita
+payload. Las tres acciones responden 200 con AdminRaffleDto.
+
+Errores adicionales uniformes: 409 RAFFLE_FIELDS_LOCKED, RAFFLE_NOT_EDITABLE o
+INVALID_RAFFLE_STATE; 422 INVALID_RAFFLE, INVALID_MEDIA o
+PUBLICATION_REQUIREMENTS_NOT_MET; 503 MEDIA_UNAVAILABLE. Conflicto de slug: 409
+CONFLICT. Validación estructural y campos desconocidos: 400 INVALID_REQUEST.
+
 | Método | Ruta | Acciones / validaciones |
 |---|---|---|
 | GET | `/admin/raffles` | listar incluidas DRAFT/PAUSED |
+| GET | `/admin/raffles/:id` | B2: detalle de administración sin datos de compradores |
 | POST | `/admin/raffles` | crear rifa + N tickets en DB de forma atómica |
 | PATCH | `/admin/raffles/:id` | validar campos inmutables tras compromiso |
 | POST | `/admin/raffles/:id/publish` | validar requisitos para publicación |

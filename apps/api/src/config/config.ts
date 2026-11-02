@@ -10,6 +10,9 @@ export interface AppConfig {
   databaseUrl?: string;
   databaseSsl: boolean;
   databaseCa?: string;
+  supabaseUrl?: string;
+  supabasePublishableKey?: string;
+  publicMediaBucket: string;
 }
 
 export const APP_CONFIG = Symbol('APP_CONFIG');
@@ -60,6 +63,20 @@ export function parseConfig(env: NodeJS.ProcessEnv): AppConfig {
       throw new Error('DATABASE_URL inválida: configurar TLS mediante DATABASE_SSL/DATABASE_CA');
     }
   }
+  const supabaseUrl = env.SUPABASE_URL || undefined;
+  if (supabaseUrl) {
+    let url: URL;
+    try { url = new URL(supabaseUrl); } catch { throw new Error('Configuración inválida: SUPABASE_URL'); }
+    const local = !deployed && ['127.0.0.1','localhost','[::1]'].includes(url.hostname);
+    if (url.origin !== supabaseUrl || (url.protocol !== 'https:' && !(local && url.protocol === 'http:'))) {
+      throw new Error('SUPABASE_URL debe ser un origen HTTPS (loopback HTTP solo en desarrollo/test)');
+    }
+  }
+  const publicMediaBucket = env.PUBLIC_RAFFLE_BUCKET ?? 'raffle-media';
+  if (!/^[a-z0-9][a-z0-9-]{0,62}$/.test(publicMediaBucket)) throw new Error('PUBLIC_RAFFLE_BUCKET inválido');
+  const supabasePublishableKey=env.SUPABASE_PUBLISHABLE_KEY||undefined;
+  if (supabasePublishableKey && (!/^[a-zA-Z0-9_.-]{8,4096}$/.test(supabasePublishableKey)
+    || supabasePublishableKey.startsWith('sb_secret_'))) throw new Error('SUPABASE_PUBLISHABLE_KEY inválida');
   return {
     environment: environment as AppConfig['environment'],
     host: env.HOST ?? '127.0.0.1',
@@ -69,6 +86,7 @@ export function parseConfig(env: NodeJS.ProcessEnv): AppConfig {
     rateLimit: integer(env.RATE_LIMIT, 120, 'RATE_LIMIT', 10000),
     rateTtlMs: integer(env.RATE_TTL_MS, 60000, 'RATE_TTL_MS', 3600000),
     databaseUrl, databaseSsl, databaseCa: env.DATABASE_CA?.replace(/\\n/g, '\n'),
+    supabaseUrl, supabasePublishableKey, publicMediaBucket,
   };
 }
 

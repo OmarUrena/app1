@@ -3,6 +3,7 @@ import type { paths } from './generated';
 
 export type { paths, components, operations } from './generated';
 
-export function createApiClient(baseUrl: string) {
-  return createClient<paths>({ baseUrl, credentials: 'include' });
+export function createApiClient(baseUrl: string, accessToken?: string) {
+  return createClient<paths>({ baseUrl, credentials: 'include',
+    headers: accessToken ? {Authorization:`Bearer ${accessToken}`} : undefined });
 }

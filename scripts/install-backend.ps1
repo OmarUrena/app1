@@ -28,8 +28,9 @@ if ($manifest.packageManager -notmatch '^pnpm@(\d+\.\d+\.\d+)$') {
 $pnpmVersion = $Matches[1]
 $nodeVersion = & $nodeCommand --version
 $nodeMajor = [int]($nodeVersion.TrimStart('v').Split('.')[0])
-if ($nodeMajor -lt 22 -or $nodeMajor -ge 25) {
-    throw 'Este proyecto requiere Node.js 22, 23 o 24 segun package.json; se recomienda 22 o 24 LTS.'
+$nodeMinor = [int]($nodeVersion.TrimStart('v').Split('.')[1])
+if (-not (($nodeMajor -eq 22 -and $nodeMinor -ge 13) -or $nodeMajor -eq 24)) {
+    throw 'Este proyecto requiere Node.js 22.13+ o 24 LTS, segun package.json.'
 }
 
 New-Item -ItemType Directory -Force -Path $toolingPath, $cachePath | Out-Null

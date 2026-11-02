@@ -27,6 +27,7 @@ jobs:
           node-version: 22
       - run: pnpm install --frozen-lockfile
       - run: pnpm generate:api
+      - run: git diff --exit-code -- docs/openapi.json packages/api-client/src/generated.ts
       - run: pnpm lint
       - run: pnpm typecheck:api
       - run: pnpm test:config

@@ -7,8 +7,12 @@
     "start": "node dist/main.js",
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
-    "test": "node -r ts-node/register --test test/foundation.test.ts",
-    "test:integration": "node -r ts-node/register --test test/database.integration.ts",
+    "test": "node -r ts-node/register --test test/foundation.test.ts test/local-tools.test.ts",
+    "test:integration": "node -r ts-node/register --test --test-concurrency=1 test/database.integration.ts test/schema.integration.ts test/catalog.integration.ts",
+    "test:catalog": "node -r ts-node/register --test test/catalog.integration.ts",
+    "db:migrate:local": "node -r ts-node/register src/database/migrate-local.ts",
+    "db:seed:demo": "node -r ts-node/register src/database/seed-demo.ts",
+    "admin:provision:local": "node -r ts-node/register src/auth/provision-local-admin.ts",
     "openapi": "node -r ts-node/register src/export-openapi.ts"
   },
   "dependencies": {
@@ -22,6 +26,7 @@
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "helmet": "^8.1.0",
+    "jose": "6.2.10",
     "pg": "^8.19.0",
     "pino": "^10.4.0",
     "reflect-metadata": "^0.2.2",

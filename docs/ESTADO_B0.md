@@ -22,7 +22,7 @@ no se ha ejecutado en GitHub.
 | HTTP y fundamentos | PASS | `npm.cmd test`: 10/10 |
 | PostgreSQL real | PASS | `npm.cmd run test:integration`: 1/1 con PostgreSQL 17.5 aislado |
 | Auditoría de dependencias | PASS | `pnpm audit --json`: cero vulnerabilidades reportadas |
-| CI remoto | SKIPPED | Workflow preparado, no ejecutado en GitHub |
+| CI remoto | PASS | [Backend](https://github.com/OmarUrena/app1/actions/runs/41308070038) aprobado; comprobado el 2026-11-01 |
 | Migración / rollback / seed | No aplica | B0 no crea tablas de negocio |
 
 Las pruebas HTTP verifican arranque, health, readiness sin DB, CORS, errores
@@ -72,6 +72,13 @@ Docker no está instalado y no fue necesario. Pasos reproducibles en `infra/READ
 - Rate limiting por proceso, sin topología proxy configurada.
 - TLS remoto y entorno Supabase no probados: esta fase solo necesita PostgreSQL
   aislado. El test local usa conexión sin TLS exclusivamente loopback.
-- CI remoto y separación de worktrees pendientes antes del trabajo simultáneo.
+- CI remoto confirmado como aprobado el 2026-11-01; separar worktrees antes del trabajo simultáneo.
   Se conserva el frontend existente; no se hicieron commits con trabajo ajeno.
 - Próxima fase desbloqueada: B1, esquema PostgreSQL, migraciones y seed DEMO.
+
+## Cierre de pendientes — 2026-11-01
+
+Consulta de solo lectura a GitHub Actions: Backend y Frontend completados con
+conclusión `success` en la rama B0. Trabajo de B1 iniciado en `feat/backend-b1`.
+Los resultados de B0 de esta página son históricos; ver `ESTADO_B1.md` para la
+verificación de la implementación nueva.

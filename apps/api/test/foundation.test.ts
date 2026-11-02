@@ -54,7 +54,10 @@ test('404 uniforme no reproduce URL, tokens ni PII', async () => {
 
 test('OpenAPI se deriva de los controladores y no inventa rutas de negocio', async () => {
   const document = createDocument(app);
-  assert.deepEqual(Object.keys(document.paths).sort(), ['/api/v1/health', '/api/v1/health/ready']);
+  assert.ok(document.paths['/api/v1/health']);
+  assert.ok(document.paths['/api/v1/health/ready']);
+  assert.ok(document.paths['/api/v1/raffles']);
+  assert.ok(!document.paths['/api/v1/orders']);
   assert.ok(document.components?.schemas?.ErrorResponseDto);
   assert.equal((await fetch(`${base}/api/v1/openapi.json`)).status, 200);
 });

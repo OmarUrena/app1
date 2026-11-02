@@ -1,0 +1,55 @@
+[CmdletBinding()]
+param(
+    [string]$PgBin = 'C:/Program Files/PostgreSQL/17/bin',
+    [ValidateRange(1024,65535)][int]$Port = 54339,
+    [ValidateSet('test:integration','test:catalog')][string]$TestScript = 'test:integration'
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+$workspacePath = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+$clusterPath = '.tmp/postgres-b1/data'
+$logPath = '.tmp/postgres-b1/server.log'
+$pgCtl = Join-Path $PgBin 'pg_ctl.exe'
+$initDb = Join-Path $PgBin 'initdb.exe'
+if (-not (Test-Path -LiteralPath $pgCtl) -or -not (Test-Path -LiteralPath $initDb)) {
+    throw 'No se encontro PostgreSQL. Indicar -PgBin con su carpeta bin.'
+}
+
+function Invoke-Checked {
+    param([string]$Program, [string[]]$Arguments)
+    & $Program @Arguments
+    if ($LASTEXITCODE -ne 0) { throw "Fallo $Program (codigo $LASTEXITCODE)." }
+}
+
+$previousDatabaseUrl = [Environment]::GetEnvironmentVariable('TEST_DATABASE_URL', 'Process')
+$previousDatabaseSsl = [Environment]::GetEnvironmentVariable('TEST_DATABASE_SSL', 'Process')
+$previousNodeEnv = [Environment]::GetEnvironmentVariable('NODE_ENV', 'Process')
+$started = $false
+Push-Location -LiteralPath $workspacePath
+try {
+    New-Item -ItemType Directory -Force .tmp/postgres-b1 | Out-Null
+    if (-not (Test-Path -LiteralPath (Join-Path $clusterPath 'PG_VERSION'))) {
+        Invoke-Checked -Program $initDb -Arguments @('-D',$clusterPath,'-U','demo_test',
+            '--auth=trust','--encoding=UTF8','--locale=C')
+    }
+    # Nunca detener una instancia que estuviera iniciada antes de este script.
+    & $pgCtl -D $clusterPath status *> $null
+    if ($LASTEXITCODE -eq 0) { throw 'La instancia de pruebas ya esta iniciada; no se modifico.' }
+    Invoke-Checked -Program $pgCtl -Arguments @('-D',$clusterPath,'-l',$logPath,
+        '-o',"-h 127.0.0.1 -p $Port -c timezone=UTC",'-w','start')
+    $started = $true
+    [Environment]::SetEnvironmentVariable('TEST_DATABASE_URL', "postgres://demo_test@127.0.0.1:$Port/postgres", 'Process')
+    [Environment]::SetEnvironmentVariable('TEST_DATABASE_SSL', 'false', 'Process')
+    [Environment]::SetEnvironmentVariable('NODE_ENV', 'test', 'Process')
+    Invoke-Checked -Program 'npm.cmd' -Arguments @('run',$TestScript)
+} finally {
+    if ($started) {
+        & $pgCtl -D $clusterPath -m fast -w stop
+        if ($LASTEXITCODE -ne 0) { Write-Warning 'No se pudo detener PostgreSQL temporal; revisar su estado.' }
+    }
+    [Environment]::SetEnvironmentVariable('TEST_DATABASE_URL', $previousDatabaseUrl, 'Process')
+    [Environment]::SetEnvironmentVariable('TEST_DATABASE_SSL', $previousDatabaseSsl, 'Process')
+    [Environment]::SetEnvironmentVariable('NODE_ENV', $previousNodeEnv, 'Process')
+    Pop-Location
+}
