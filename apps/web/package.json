@@ -13,7 +13,8 @@
     "test:watch": "vitest",
     "test:core": "node --test tests/core.test.mjs",
     "test:e2e": "playwright test",
-    "api:generate": "pnpm --filter @sorteos/api-client generate"
+    "api:generate": "pnpm --filter @sorteos/api-client generate",
+    "api:check-catalog": "node scripts/check-catalog-contract.mjs"
   },
   "dependencies": {
     "@sorteos/api-client": "workspace:*",

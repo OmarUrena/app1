@@ -24,7 +24,7 @@ export function RaffleCard({ raffle, priority = false }: { raffle: RaffleView; p
   const image = raffle.images[0];
   return <article className="raffle-card">
     <Link href={`/rifas/${raffle.slug}`} className="raffle-image-link" aria-label={`Ver ${raffle.title}`}>
-      {image && <Image src={image.src} alt={image.alt} fill sizes="(max-width: 767px) calc(100vw - 32px), (max-width: 1023px) 46vw, 380px" preload={priority} className="prize-image" />}
+      {image && <Image src={image.src} alt={image.alt} fill sizes="(max-width: 767px) calc(100vw - 32px), (max-width: 1023px) 46vw, 380px" loading={priority ? "eager" : "lazy"} fetchPriority={priority ? "high" : undefined} className="prize-image" />}
       <div className="image-badges"><Badge tone={raffle.featured ? "accent" : "neutral"}>{raffle.featured ? "Destacada" : raffle.category}</Badge><span className="image-demo">DEMO</span></div>
     </Link>
     <div className="raffle-card-content"><div className="raffle-card-title"><h3><Link href={`/rifas/${raffle.slug}`}>{raffle.title}</Link></h3><p>{raffle.subtitle}</p></div>

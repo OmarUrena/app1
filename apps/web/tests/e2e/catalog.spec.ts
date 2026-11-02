@@ -1,5 +1,23 @@
 import { expect, test } from "@playwright/test";
 
+test("búsqueda espera JavaScript y conserva la primera entrada del usuario", async ({ page }) => {
+  let release = () => {};
+  const scriptsReady = new Promise<void>(resolve => { release = resolve; });
+  await page.route(url => url.pathname.startsWith("/_next/static/") && url.pathname.endsWith(".js"), async route => {
+    await scriptsReady;
+    await route.continue();
+  });
+  try {
+    await page.goto("/rifas", { waitUntil: "commit" });
+    const search = page.getByRole("searchbox", { name: "Buscar rifas" });
+    await expect(search).toBeDisabled();
+    release();
+    await expect(search).toBeEnabled();
+    await search.fill("portatil");
+    await expect(page.getByRole("article")).toHaveCount(2);
+  } finally { release(); }
+});
+
 test("búsqueda sin tildes, filtros y recuperación del catálogo vacío", async ({ page }) => {
   await page.goto("/rifas");
   await page.getByRole("searchbox", { name: "Buscar rifas" }).fill("portatil");

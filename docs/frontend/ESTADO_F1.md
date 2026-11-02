@@ -1,5 +1,29 @@
 # Frontend F1 — rediseño de App Sorteos
 
+## Actualización de cierre — 2026-11-01
+
+Trabajo en feat/frontend-f2, dentro de .tmp/frontend-f2, sin modificar feat/backend-b0. Se completaron controles pendientes de navegadores y se confirmó la CI remota del commit base.
+
+| Control actual | Resultado |
+| --- | --- |
+| Lint, typecheck y build producción live | PASS |
+| Tests unitarios/componentes | 13 aprobados, incluidos cliente HTTP y recuperación |
+| Tests de núcleo | 6 aprobados |
+| E2E | 70 aprobados, 0 omitidos, 1.5 minutos |
+| Motores | Chromium 360/768/1280 px; Firefox 1280 px; WebKit móvil 390 px |
+| Accesibilidad automática | Axe A/AA en inicio, catálogo, detalle, ayuda y login en los cinco perfiles |
+| CI base 8b66eb6 | [Frontend exitoso](https://github.com/OmarUrena/app1/actions/runs/41308070025), [Backend exitoso](https://github.com/OmarUrena/app1/actions/runs/41308070038) |
+| CI de esta rama nueva | Pendiente de publicarse/integrarse; la CI base no la sustituye |
+| Safari en iPhone físico / lector de pantalla humano | No ejecutado; requiere dispositivo/revisión humana |
+
+La ampliación detectó pérdida de la primera búsqueda antes de hidratación y diferencias de foco/tabulación. Se protegieron los controles hasta instalar sus handlers, se añadió tabIndex=0 al enlace de salto y se retiró el scroll suave global. Una regresión retiene los scripts de red y verifica que el buscador no acepte entrada prematura. Las pruebas de teclado no se eliminaron ni se rebajaron. También se priorizó la primera fila de imágenes y se comprobó retry del error boundary.
+
+Evidencia: [inicio WebKit móvil](screenshots/f1-followup/inicio-webkit-mobile.png), [catálogo WebKit móvil](screenshots/f1-followup/catalogo-webkit-mobile.png), [detalle Firefox](screenshots/f1-followup/detalle-firefox-desktop.png). f1-followup conserva diez capturas adicionales.
+
+F1 queda verificado localmente dentro de estos límites. F2 requiere B2: ver [ESTADO_F2.md](ESTADO_F2.md). No se habilitaron compras, transferencias ni autenticación. Las secciones siguientes conservan el registro original.
+
+## Registro original
+
 Fecha: 2026-10-29. Alcance: F1 visual, con datos demo explícitos; sin integración F2 ni compra F3–F4. Guía aprobada por el propietario mediante «Puedes empezar a trabajar».
 
 ## Cambios entregados

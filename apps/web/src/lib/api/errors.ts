@@ -25,14 +25,18 @@ const messages: Record<string, string> = {
 export function messageForCode(code: string): string {
   return messages[code] ?? "No pudimos completar la solicitud. Inténtalo más tarde.";
 }
-export function parseApiError(body: unknown, status: number): ApiError {
+function safeRequestId(value: unknown): string | undefined {
+  return typeof value === "string" && /^[\w.-]{1,128}$/.test(value) ? value : undefined;
+}
+export function parseApiError(body: unknown, status: number, headerRequestId?: string | null): ApiError {
+  const fallbackCode = status === 429 ? "RATE_LIMITED" : status === 403 ? "FORBIDDEN" : "UNKNOWN_ERROR";
   if (typeof body === "object" && body !== null && "error" in body) {
     const error = body.error;
     if (typeof error === "object" && error !== null) {
-      const code = "code" in error && typeof error.code === "string" ? error.code : "UNKNOWN_ERROR";
-      const requestId = "requestId" in error && typeof error.requestId === "string" && /^[\w.-]{1,128}$/.test(error.requestId) ? error.requestId : undefined;
+      const code = "code" in error && typeof error.code === "string" ? error.code : fallbackCode;
+      const requestId = safeRequestId("requestId" in error ? error.requestId : undefined) ?? safeRequestId(headerRequestId);
       return new ApiError(code, status, requestId);
     }
   }
-  return new ApiError("UNKNOWN_ERROR", status);
+  return new ApiError(fallbackCode, status, safeRequestId(headerRequestId));
 }

@@ -1,5 +1,15 @@
 # Cambios de frontend
 
+## Cierre adicional F1 y preparación F2 — 2026-11-01
+
+- Trabajo separado en feat/frontend-f2 con worktree independiente; backend sin modificaciones.
+- Compatibilidad comprobada con Firefox y WebKit móvil, además de Chromium. Regresión de JavaScript retenido para proteger la primera búsqueda.
+- Controles React deshabilitados hasta estar listos; foco explícito del enlace de salto y scroll inmediato para navegación consistente.
+- Primera fila de imágenes del catálogo priorizada y recuperación de segmento mediante retry de Next.js.
+- Corregida duplicación /api/v1 del cliente, conservando cookies/no-store y correlación segura en errores JSON/HTML.
+- Comprobador de contrato y documentación F2; integración pendiente de B2, sin rutas ni DTOs ficticios.
+- CI base confirmada exitosa en GitHub; workflow preparado para los tres motores en próximos cambios.
+
 ## Rediseño F1 — 2026-10-29
 
 - Aplicada la guía visual aprobada: fondo petróleo, dorado, títulos serif, hero fotográfico y navegación inferior móvil.
