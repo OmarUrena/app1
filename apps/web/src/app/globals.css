@@ -341,3 +341,23 @@ main:focus { outline: none; }
 .image-fallback { position: absolute; inset: 0; display: grid; place-items: center; padding: 1.5rem; text-align: center; background: var(--surface); color: var(--muted); }
 .pagination { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 2rem; }
 .rules-list li { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.checkout-page { padding-block: 24px 64px; }
+.checkout-grid { display: grid; gap: 24px; padding-bottom: 36px; }
+.checkout-panel { padding: 24px; border: 1px solid var(--line); border-radius: var(--radius); background: linear-gradient(140deg, var(--elevated), var(--surface)); min-width: 0; }
+.checkout-panel .alert { margin-block: 20px; }
+.checkout-panel .quantity-row { display: grid; grid-template-columns: 48px minmax(0,1fr) 48px; align-items: center; }
+.checkout-panel input { width: 100%; }
+.checkout-panel .quantity-button { padding: 0; min-height: 48px; margin-top: 22px; }
+.checkout-panel .quantity-field { margin-block: 24px; }
+.checkout-summary, .bank-account { margin-block: 24px; }
+.checkout-summary > div, .bank-account > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 20px; padding-block: 12px; border-bottom: 1px solid var(--line); }
+.checkout-summary dd, .bank-account dd { margin: 0; overflow-wrap: anywhere; }
+.checkout-summary dt, .bank-account dt { color: var(--muted); }
+.checkout-summary > div:last-child dd { color: var(--accent); font-size: 1.6rem; }
+.reservation-timer { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px; border: 1px solid var(--accent); padding: 16px; border-radius: 12px; margin-bottom: 16px; }
+.reservation-timer strong { color: var(--accent); font-size: 2rem; font-variant-numeric: tabular-nums; }
+.timer-warning { border-color: #ffb7a8; }
+.checkout-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-block: 20px; }
+.bank-preview { border-top: 1px solid var(--line); padding-top: 24px; }
+@media (min-width: 1024px) { .checkout-grid { grid-template-columns: 1fr 1fr; align-items: start; } }

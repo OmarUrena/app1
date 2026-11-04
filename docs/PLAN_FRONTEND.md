@@ -73,7 +73,7 @@
 
 **Diseño del formulario:**
 - Resumen fijo: título del premio, cantidad, importe RD$, tiempo restante de pre-reserva, datos bancarios y botón seguro para copiar número de cuenta.
-- Secciones **en la misma pantalla**: `Datos personales` (nombre, WhatsApp/teléfono, email opcional), `Datos de transferencia` (banco/cuenta seleccionada, referencia, fecha), `Comprobante` (archivo JPG/PNG/PDF obligatorio; <=5 MB configurable), `Aceptar reglas/privacidad`, `Enviar orden y comprobante`.
+- Secciones **en la misma pantalla**: `Datos personales` (nombre, WhatsApp/teléfono y email obligatorios; validar formato del correo), `Datos de transferencia` (banco/cuenta seleccionada, referencia, fecha), `Comprobante` (archivo JPG/PNG/PDF obligatorio; <=5 MB configurable), `Aceptar reglas/privacidad`, `Enviar orden y comprobante`.
 - Vista previa archivo sin exponerlo a tercero; control quitar/reemplazar; drag/drop opcional, acceso táctil y lector; evitar subir a localStorage.
 - Precio siempre el confirmado por backend; no fiarse de estado del navegador o valor en formulario; si la reserva vence, bloquear y guiar a incidencia.
 - `POST /orders` único multipart; no hacer llamadas independientes que crean una orden antes del comprobante. UX de progreso: `Validando formulario`, `Subiendo comprobante`, `Registrando orden`, `Generando números` (etapas visuales aproximadas, no prometer precisión de upload sin soporte).

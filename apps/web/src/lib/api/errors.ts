@@ -12,6 +12,10 @@ export class ApiError extends Error {
 }
 
 const messages: Record<string, string> = {
+  SESSION_INVALID: "No pudimos acceder a tu sesión. No crees otra reserva si ya transferiste; solicita asistencia.",
+  RAFFLE_NOT_AVAILABLE: "Esta rifa no admite nuevas pre-reservas en este momento.",
+  INVALID_QUANTITY: "La cantidad no cumple los límites de esta rifa. Revisa la cantidad.",
+  HOLD_CONSUMED: "Este cupo ya se utilizó. No crees otra reserva; solicita asistencia para consultar tu orden.",
   INSUFFICIENT_TICKETS: "Ya no quedan tantos boletos disponibles. Reduce la cantidad.",
   HOLD_EXPIRED: "La reserva temporal venció. Si ya transferiste, solicita asistencia.",
   IDEMPOTENCY_CONFLICT: "Esta solicitud ya fue procesada con otros datos. Consulta tu orden.",

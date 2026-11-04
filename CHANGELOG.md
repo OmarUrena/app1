@@ -1,5 +1,13 @@
 # Changelog
 
+## Frontend F3 — 2026-11-03
+
+- Nueva ruta de cantidad y pre-reserva temporal conectada al cliente B3: sesión HttpOnly, idempotencia persistida por pestaña, recuperación GET, cancelación y vencimiento sin números ni órdenes.
+- Contador basado en hora servidor, advertencia al vencer, cuentas públicas solo con cupo activo e información clara de que aún no deben realizarse transferencias.
+- Respuesta perdida y 429 conservan intención; pérdida de cookie no crea otra sesión/hold al recuperar. Demo sin escrituras.
+- Ayuda de incidencias, CORS/same-site documentados y pruebas con NestJS/PostgreSQL locales y tres motores de navegador. Ver docs/frontend/ESTADO_F3.md y ADR F003.
+- Snapshots de contrato B3 y plan sincronizados; F4 recoge correo obligatorio según la decisión de backend.
+
 ## Frontend F2 — 2026-11-01
 
 - Inicio, catálogo paginado y detalle conectados a B2 mediante cliente generado; snapshots del contrato sincronizados desde backend sin ediciones manuales.

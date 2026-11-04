@@ -1,7 +1,7 @@
 # App Sorteos — paquete de implementación progresiva para Codex
 
 **Fecha de especificación:** 2026-10-26
-**Estado:** frontend F2 conectado al contrato B2 (2026-11-01). Ver [validación y límites F2](docs/frontend/ESTADO_F2.md). Esta rama requiere integrar el backend B1/B2 del checkout principal; no contiene su implementación.
+**Estado:** frontend F3 conectado a B3 (2026-11-03), rama feat/frontend-f3. Ver [validación y límites F3](docs/frontend/ESTADO_F3.md). Worktree conservado en .tmp/frontend-f2; esta rama requiere el backend B1–B3 del checkout principal.
 **Idioma de producto:** español (República Dominicana); moneda DOP (RD$).
 
 ## Iniciar el frontend conectado
@@ -16,11 +16,11 @@ $env:API_BASE_URL = "http://127.0.0.1:3001/api/v1"
 npm run dev --workspace @sorteos/web -- --port 3104
 ```
 
-Web: http://127.0.0.1:3104. Iniciar B2 en otra terminal desde el checkout principal con su DB local configurada. Sin API se muestra un error recuperable; sin rifas publicadas se muestra un catálogo vacío. El seed B1 no publica rifas. La compra todavía no está habilitada.
+Web: http://127.0.0.1:3104. Iniciar B3 en otra terminal desde el checkout principal con su DB local migrada y CORS_ORIGINS=http://127.0.0.1:3104. Sin API se muestra un error recuperable; sin rifas publicadas se muestra un catálogo vacío. El seed B1 no publica rifas. El detalle permite consultar cupo temporal. La recepción de órdenes y comprobantes todavía no está habilitada; no transferir.
 
 `apps/web/.env.example` utiliza `API_MODE=live`. Para revisar únicamente las pantallas de demostración en desarrollo, cambiar explícitamente a `mock`. `PUBLIC_PRIZE_IMAGE_BASE_URL` admite el directorio HTTPS del bucket público de premios; vacío muestra placeholders. Reiniciar Next al configurarlo. Nunca introducir claves privilegiadas ni el bucket privado de comprobantes.
 
-Controles: `npm run lint --workspace @sorteos/web`, `npm run typecheck --workspace @sorteos/web`, `npm run test --workspace @sorteos/web`, `npm run test:core --workspace @sorteos/web`, `npm run api:check-catalog --workspace @sorteos/web` y `npm run test:e2e --workspace @sorteos/web`. La integración local adicional se explica en [ESTADO_F2](docs/frontend/ESTADO_F2.md).
+Controles: `npm run lint --workspace @sorteos/web`, `npm run typecheck --workspace @sorteos/web`, `npm run test --workspace @sorteos/web`, `npm run test:core --workspace @sorteos/web`, `npm run api:check-catalog --workspace @sorteos/web` y `npm run test:e2e --workspace @sorteos/web`. La integración adicional B3 se ejecuta con `npm run test:checkout:live --workspace @sorteos/web`; configuración y límites en [ESTADO_F3](docs/frontend/ESTADO_F3.md).
 
 ## Propósito
 Construir una plataforma web propia para vender boletos de rifas de **un único organizador**, con una compra en un solo formulario, transferencias bancarias con comprobante obligatorio, asignación aleatoria de números, y validación manual del pago desde un panel administrativo.

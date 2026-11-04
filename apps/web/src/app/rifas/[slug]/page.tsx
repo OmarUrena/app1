@@ -1,7 +1,7 @@
 ﻿import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Alert, Badge, Button, SectionContainer } from "@/components/ui";
+import { Alert, Badge, Button, ButtonLink, SectionContainer } from "@/components/ui";
 import { Icon } from "@/components/ui/icon";
 import { AvailabilityMeter, PricePanel, RaffleRules } from "@/features/raffles/components";
 import { getRaffle } from "@/features/raffles/data";
@@ -45,7 +45,7 @@ export default async function RaffleDetailPage({ params }: Props) {
         <div className="panel-divider" />
         <PurchaseQuantity min={raffle.minPurchase} max={raffle.maxPurchase} disabled={!open} />
         <Alert title={open ? "Explora con tranquilidad" : availabilityLabel(raffle)}>{open ? "Esta vista previa no reserva cupo ni genera una orden. El importe final se confirmará en el servidor cuando se habilite la compra." : raffle.status === "PUBLISHED" ? "El cupo está comprometido. Los boletos reservados todavía no equivalen a ventas confirmadas." : "La participación está deshabilitada en este estado."}</Alert>
-        <Button disabled className="purchase-disabled">{open ? (raffle.demo ? "Compra no habilitada en demo" : "Compra no habilitada todavía") : availabilityLabel(raffle)}</Button>
+        {raffle.demo ? <Button disabled className="purchase-disabled">{open ? "Compra no habilitada en demo" : availabilityLabel(raffle)}</Button> : <ButtonLink href={`/rifas/${raffle.slug}/participar`}>{open ? "Consultar cupo temporal" : "Revisar mi cupo temporal"}</ButtonLink>}
         <p className="panel-footnote"><Icon name="shield" />Sin transferencias ni datos personales</p>
         <a href="#reglas" className="rules-link">{raffle.demo ? "Leer reglas de la demostración" : "Leer reglas de participación"}</a>
       </aside>

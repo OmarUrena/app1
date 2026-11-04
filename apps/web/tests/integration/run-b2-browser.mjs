@@ -15,7 +15,7 @@ let source = fs.readFileSync(testFile, "utf8");
 const end = source.indexOf("test('JWT ausente");
 if (end < 0) throw new Error("Cambió el setup B2. Revisar el harness antes de ejecutarlo.");
 source = source.slice(0, end);
-source = source.replace(/from '([^']+)'/g, (_, name) => "from " + JSON.stringify(name.startsWith("../") ? path.resolve(path.dirname(testFile), name).replaceAll("\\", "/") : name.startsWith("node:") ? name : backendRequire.resolve(name).replaceAll("\\", "/")));
+source = source.replace(/from '([^']+)'/g, (_, name) => "from " + JSON.stringify(name.startsWith(".") ? path.resolve(path.dirname(testFile), name).replaceAll("\\", "/") : name.startsWith("node:") ? name : backendRequire.resolve(name).replaceAll("\\", "/")));
 source = source.replace("import 'reflect-metadata';", "import " + JSON.stringify(backendRequire.resolve("reflect-metadata").replaceAll("\\", "/")) + ";");
 source = source.replace("await app.listen(0,'127.0.0.1');base=await app.getUrl();", "await app.listen(3106,'127.0.0.1');base=await app.getUrl();");
 source += `
@@ -63,7 +63,7 @@ test('F2 navegador con NestJS y PostgreSQL reales: vacío, paginación, detalle,
       await view.goto('http://127.0.0.1:3105/rifas/'+slug);
       await view.getByRole('heading',{name:'PREMIO TEST F2 12',exact:true}).waitFor();
       assert.equal(await view.getByRole('progressbar').getAttribute('aria-valuenow'),'0');
-      assert.equal(await view.getByRole('button',{name:'Compra no habilitada todavía'}).isDisabled(),true);
+      await view.getByRole('link',{name:'Consultar cupo temporal',exact:true}).waitFor();
       assert.equal(await view.getByText('Imagen conceptual · DEMO',{exact:true}).count(),0);
       await view.getByText('Cupo consultado:',{exact:false}).waitFor();
       assert.equal(await view.getByText('Disponibles',{exact:true}).locator('..').locator('dd').textContent(),'9');

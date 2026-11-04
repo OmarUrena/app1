@@ -1,3 +1,5 @@
+> Actualización F3 (2026-11-03): ya existe la pantalla de pre-reserva; ver [ESTADO_F3.md](ESTADO_F3.md). El contenido siguiente conserva la entrega F2 y sus resultados históricos.
+
 # Frontend F2 — catálogo conectado a B2
 
 Fecha: 2026-11-01. Rama: `feat/frontend-f2`. Worktree: `.tmp/frontend-f2`.

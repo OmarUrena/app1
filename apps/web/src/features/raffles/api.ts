@@ -18,7 +18,7 @@ export function mapCard(dto: Schemas["RaffleCardDto"], imageBase?: string): Raff
 }
 export function mapDetail(dto: Schemas["RaffleDetailDto"], inventory: Schemas["AvailabilityDto"], imageBase?: string): RaffleView {
   if (inventory.total !== inventory.available + inventory.held + inventory.reserved + inventory.sold) throw new ApiError("INVALID_RESPONSE", 502);
-  return { ...mapCard(dto, imageBase), subtitle: "", description: dto.description,
+  return { ...mapCard(dto, imageBase), id: dto.id, subtitle: "", description: dto.description,
     images: dto.images.filter(image => publicImage(image.url, imageBase)).map(image => ({ src: image.url, alt: image.alt })),
     minPurchase: dto.minPurchase, maxPurchase: dto.maxPurchase, total: inventory.total, sold: inventory.sold,
     reserved: inventory.reserved, held: inventory.held, available: inventory.available, asOf: inventory.asOf,

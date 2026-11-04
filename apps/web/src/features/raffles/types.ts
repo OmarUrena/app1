@@ -2,6 +2,7 @@
 export type RaffleStatus = "DRAFT" | "PUBLISHED" | "PAUSED" | "CLOSED" | "DRAWN";
 export type RaffleImage = { src: string; alt: string };
 export type RaffleView = {
+  id?: string;
   slug: string;
   title: string;
   subtitle: string;
