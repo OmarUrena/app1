@@ -72,3 +72,18 @@ try {
 
 En el sandbox de Windows, initdb/pg_ctl pueden requerir permisos ampliados para
 crear procesos. No se detiene ni altera el servicio PostgreSQL instalado del sistema.
+
+B3 añade una tercera migración y una tabla de límites con RLS, manteniendo cerrado
+el acceso del browser al esquema de negocio. `test:integration` incluye B1/B2/B3.
+Para reproducir la autenticación de CI en Windows, usar
+`powershell -NoProfile -File scripts/test-backend-local.ps1 -PasswordAuthentication`;
+se crea un cluster desechable separado con contraseña aleatoria SCRAM.
+La opción `-TestScript test:checkout` limita la ejecución a B3. No usar URLs remotas
+en estas herramientas locales ni editar SQL que ya figure en historial remoto.
+
+B4 incorpora una cuarta migración y receipt_staging (15 tablas de negocio en total).
+El seed B1 permanece DEMO y reejecutable; no sube archivos. `test:orders` usa
+PostgreSQL con rol limitado y un servidor Storage local que almacena los bytes
+de archivos de prueba válidos. El adaptador de producto requiere Supabase real,
+bucket privado y clave de servidor; no crea recursos remotos automáticamente.
+Recuperación: revertir B4 antes de B3/B2, reparar el historial mediante CLI.

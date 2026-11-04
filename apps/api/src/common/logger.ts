@@ -8,7 +8,8 @@ export class SafeLogger implements LoggerService {
   constructor(level: AppConfig['logLevel']) {
     this.output = pino({ level, base: undefined, redact: {
       paths: ['req', 'res', 'body', 'headers', 'authorization', 'cookie', 'password', 'token',
-        'phone', 'email', 'customerName', 'customerPhone', 'customerEmail', 'databaseUrl'],
+        'phone', 'email', 'customerName', 'customerPhone', 'customerEmail', 'databaseUrl',
+        'storageKey','supabaseStorageKey','receipt','buffer'],
       remove: true,
     } });
   }

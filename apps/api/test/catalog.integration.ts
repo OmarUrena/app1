@@ -16,6 +16,7 @@ import { localDatabaseUrl, migrateLocal, revertLocalMigrationHistory, workspaceR
 import { seedDemo } from '../src/database/seed-demo';
 import { DatabaseService } from '../src/database/database.service';
 import { AdminRaffleDto, AvailabilityDto, RafflePageDto } from '../src/catalog/catalog.dto';
+import { revertEmptyB4 } from './recovery-tools';
 
 const name = `sorteos_b1_test_b2_${process.pid}`;
 const ownerId = '00000000-0000-4000-8000-000000000010';
@@ -25,6 +26,7 @@ const adminSubject = randomUUID();
 const inactiveSubject = randomUUID();
 const outsider = randomUUID();
 const loginRole = `sorteos_b2_login_${process.pid}`;
+const loginPassword = randomUUID();
 let owner:Client;
 let db:Client;
 let rootConnected = false;
@@ -63,10 +65,11 @@ before(async()=>{
   await seedDemo(db);
   await db.query('UPDATE sorteos.admin_users SET auth_user_id=$1,active=true WHERE id=$2',[ownerSubject,ownerId]);
   await db.query("INSERT INTO sorteos.admin_users(auth_user_id,role,active) VALUES ($1,'ADMIN',true),($2,'ADMIN',false)",[adminSubject,inactiveSubject]);
-  await owner.query(`CREATE ROLE ${loginRole} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`);
+  // UUID generado en el test: literal seguro; el login funciona también con SCRAM en CI.
+  await owner.query(`CREATE ROLE ${loginRole} LOGIN PASSWORD '${loginPassword}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`);
   loginCreated=true;
   await owner.query(`GRANT sorteos_runtime TO ${loginRole}`);
-  url.username=loginRole;url.password='';dbUrl=url.toString();
+  url.username=loginRole;url.password=loginPassword;dbUrl=url.toString();
   key = await generateKeyPair('ES256',{extractable:true});
   nextKey = await generateKeyPair('ES256',{extractable:true});
   const keys = [{...await exportJWK(key.publicKey),kid:'primary',alg:'ES256',use:'sig'},
@@ -366,6 +369,14 @@ test('recuperación B2 conserva B1, repara historial oficial y permite reaplicar
   const recovery=new Client({connectionString:url.toString()});
   try {
     migrateLocal(url.toString());await recovery.connect();
+    await revertEmptyB4(recovery,url.toString());
+    const b3=await recovery.query<{version:string}>("SELECT version FROM supabase_migrations.schema_migrations WHERE name='checkout_holds_b3'");
+    if(b3.rows[0]) {
+      await recovery.query('BEGIN');
+      await recovery.query(await readFile(resolve(workspaceRoot,'infra/recovery/b3-down-empty.sql'),'utf8'));
+      await recovery.query('COMMIT');
+      revertLocalMigrationHistory(url.toString(),b3.rows[0].version);
+    }
     const history=await recovery.query<{version:string}>('SELECT version FROM supabase_migrations.schema_migrations ORDER BY version DESC LIMIT 1');
     await recovery.query('BEGIN');await recovery.query(down);await recovery.query('COMMIT');
     assert.equal((await recovery.query("SELECT count(*)::int AS n FROM pg_tables WHERE schemaname='sorteos'")).rows[0].n,13);

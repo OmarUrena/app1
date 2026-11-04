@@ -36,7 +36,7 @@ test('booleanos y nivel de log rechazan valores ambiguos', () => {
 test('staging y producción requieren HTTPS, DB y TLS y deshabilitan Swagger', () => {
   for (const environment of ['staging', 'production']) {
     const env = { NODE_ENV: environment, CORS_ORIGINS: 'https://app.invalid',
-      DATABASE_URL: 'postgres://user:demo@db.invalid/demo' };
+      DATABASE_URL: 'postgres://user:demo@db.invalid/demo', CHECKOUT_ABUSE_HASH_KEY:'x'.repeat(32) };
     assert.equal(parseConfig(env).swaggerEnabled, false);
     assert.throws(() => parseConfig({ ...env, SWAGGER_ENABLED: 'true' }));
     assert.throws(() => parseConfig({ ...env, DATABASE_SSL: 'false' }));
@@ -62,4 +62,21 @@ test('origen Auth fijo y bucket de premios no aceptan credenciales, rutas o HTTP
     assert.throws(()=>parseConfig({PUBLIC_RAFFLE_BUCKET:bucket}));
   }
   assert.equal(parseConfig({SUPABASE_URL:'https://project.supabase.co'}).supabaseUrl,'https://project.supabase.co');
+});
+
+test('B3 limita TTL, cupos y barrido; clave de abuso obligatoria en entornos desplegados',()=>{
+  for(const env of [{HOLD_TTL_MINUTES:'0'},{HOLD_TTL_MINUTES:'721'},{HOLD_MAX_QUANTITY:'1001'},
+    {HOLD_MAX_ACTIVE_SESSION:'0'},{HOLD_MAX_ACTIVE_IP:'-1'},{HOLD_HOURLY_IP:'1.5'},
+    {HOLD_SWEEP_MS:'0'},{CHECKOUT_SESSION_HOURLY_IP:'0'},{CHECKOUT_ABUSE_HASH_KEY:'short'}])assert.throws(()=>parseConfig(env));
+  const deployed={NODE_ENV:'production',DATABASE_URL:'postgres://user:demo@db.invalid/demo',CORS_ORIGINS:'https://app.invalid'};
+  assert.throws(()=>parseConfig(deployed));
+  assert.equal(parseConfig({...deployed,CHECKOUT_ABUSE_HASH_KEY:'x'.repeat(32)}).holdTtlMinutes,60);
+});
+
+test('B4 separa bucket privado y clave de servidor de las claves publicables y acota archivo',()=>{
+  for(const env of [{PRIVATE_RECEIPT_BUCKET:'raffle-media'},{PRIVATE_RECEIPT_BUCKET:'../receipts'},
+    {SUPABASE_STORAGE_KEY:'sb_publishable_fixture_not_privileged'},{SUPABASE_STORAGE_KEY:'sb_secret_bad\nheader'},
+    {RECEIPT_MAX_BYTES:'0'},{RECEIPT_MAX_BYTES:'10485761'}])assert.throws(()=>parseConfig(env));
+  const c=parseConfig({SUPABASE_STORAGE_KEY:'sb_secret_fixture_private_server_key'});
+  assert.equal(c.receiptBucket,'receipts');assert.equal(c.receiptMaxBytes,5242880);
 });

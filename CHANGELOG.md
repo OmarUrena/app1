@@ -1,5 +1,57 @@
 # Changelog
 
+## Sin publicar — B4 — 2026-11-03
+
+- POST multipart de orden + comprobante y GET protegido por sesión de invitado;
+  correo obligatorio, validación server-side y números solo tras commit.
+- Orden PENDING_REVIEW/reporte REPORTED y HELD -> RESERVED atómicos; idempotencia
+  por sesión, clave y hash del payload/archivo. Sin aprobación ni expiración de órdenes.
+- Storage privado real por SDK, staging durable, compensación y job de limpieza
+  que no borra adjuntos confirmados. Validación JPG/PNG/PDF en worker aislado;
+  bytes originales/SHA-256, sin claves/PII/diagnósticos de parsers en logs.
+- Migración B4 nueva con email obligatorio en nuevas escrituras, permisos mínimos,
+  comprobante adjunto exigido en DB y recuperación protegida; sin editar B1/B2/B3.
+- Cliente tipado incluye helper multipart, OpenAPI 0.4.0, configuración y guías.
+  Supabase JS 2.118.0, sharp 0.35.5 y pdf-lib 1.17.1 fijados en lockfile.
+  No se aplica B3/B4 remoto, crea buckets ni despliega; F4/B5 siguen separados.
+- Verificación final local: 91 pruebas aprobadas, 69 de integración SCRAM;
+  auditoría de producción sin vulnerabilidades. Ver docs/ESTADO_B4.md.
+
+## Requisito acordado — 2026-11-03
+
+- Correo obligatorio para nuevas órdenes B4/F4: contrato, planes y QA actualizados;
+  validación y cambio de persistencia pendientes de B4, sin editar migraciones aplicadas.
+- Plan B7 explicita protección DDoS en borde/origen, límites distribuidos y alertas;
+  no se ha configurado un proveedor ni certificado resistencia DDoS.
+
+## Sin publicar — B3 — 2026-11-03
+
+- Sesión invitada HttpOnly/CSRF, holds idempotentes por sesión y consulta/cancelación
+  protegidas; snapshot de precio/TTL, sin números ni órdenes en respuestas.
+- Inventario atómico bajo lock de rifa y Fisher-Yates parcial con crypto.randomInt;
+  límites de simultáneos y altas horarias en PostgreSQL con HMAC de IP.
+- Job por instancia y liberación lazy exclusivamente de HELD vencidos; RESERVED,
+  SOLD y holds consumidos se conservan. Auditoría sin secretos ni IP cruda.
+- Migración B3 nueva y recuperación protegida; B1/B2 aplicadas no se modifican.
+  Pruebas de concurrencia sobre dos instancias, aislamiento de sesión, abuso,
+  cancelación, expiración y recuperación; runner local con opción SCRAM.
+- Contrato, OpenAPI/cliente generado, variables, README y ADR actualizados.
+  No se aplica B3 remoto ni se despliega. CAPTCHA externo pendiente de proveedor.
+- 72 pruebas aprobadas (51 de integración SCRAM, con 50 solicitudes en dos
+  instancias para 20 boletos, sin duplicados), lint/typecheck/build y
+  compatibilidad tipada del frontend correctos. Ver docs/ESTADO_B3.md.
+
+## Sin publicar — Continuación B2 — 2026-11-03
+
+- OWNER remoto autorizado por UUID, validado contra Auth y provisionado en la
+  allowlist con auditoría; pendiente la prueba HTTP de su sesión real.
+- Detectado fallo del CI publicado de B2 en integración. El fixture del login
+  limitado ahora usa una contraseña aleatoria, compatible con PostgreSQL SCRAM;
+  no cambia permisos del producto ni migraciones aplicadas.
+- Verificación local: 60 pruebas aprobadas, incluidas 40 de integración bajo
+  SCRAM; lint, typecheck, build y contrato generado correctos. Lecturas HTTP
+  sobre Supabase repetidas correctamente. Nueva ejecución remota del CI pendiente.
+
 ## Sin publicar — B2 — 2026-11-01
 
 - Nueva rama feat/backend-b2, conservando B1 y cambios existentes de frontend.

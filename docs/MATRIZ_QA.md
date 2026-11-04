@@ -47,6 +47,10 @@
 | O12 | La orden recién enviada se visualiza | Muestra números reservados y «pendiente», nunca «pagado» | F4 |
 | O13 | Refresh tras confirmación | Consulta protegida, o vía de recuperación segura | B4/F4 |
 | O14 | Precio con centavos y múltiples boletos | Cálculo exacto en minor units; sin float | B4 |
+| O15 | Correo ausente, vacío o con formato inválido | Validación en formulario y API; sin upload ni creación de orden | B4/F4 |
+| O16 | Limpieza reclama staging mientras se completa carga | No se confirma una orden con archivo eliminado; ATTACHED nunca se limpia | B4 |
+| O17 | Cambian reglas/banco mientras Storage responde | Se revalidan antes del commit, sin orden parcial y con compensación | B4 |
+| O18 | Reporte inventado desde rol runtime sin staging coherente | Constraint diferida rechaza el commit y revierte inventario/orden | B4 |
 
 ## D. Revisión y pagos
 

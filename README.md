@@ -7,6 +7,11 @@
 **Avance B2 (2026-11-01):** catálogo y administración de rifas en `feat/backend-b2`,
 JWT + usuario Auth + allowlist, publicación auditada y rol DB limitado.
 Ver [estado B2](docs/ESTADO_B2.md) para pruebas y configuración.
+**Avance B3 (2026-11-03):** sesión invitada, pre-reservas idempotentes,
+asignación CSPRNG, límites persistentes y liberación segura de HELD.
+Ver [estado B3](docs/ESTADO_B3.md).
+**Avance B4 (2026-11-03):** envío único de orden/comprobante, correo obligatorio,
+consulta protegida y números reservados después del commit. Ver [estado B4](docs/ESTADO_B4.md).
 **Idioma de producto:** español (República Dominicana); moneda DOP (RD$).
 
 ## Propósito
@@ -58,7 +63,7 @@ La generación escribe `docs/openapi.json` desde NestJS y
 compilar tras una instalación limpia y al modificar controladores/DTO.
 El cliente se crea con `createApiClient('http://127.0.0.1:3001')` y usa
 `client.GET('/api/v1/health')` o `client.GET('/api/v1/raffles')`. B2 ya incorpora
-catálogo y administración de rifas; holds y órdenes siguen pendientes de B3/B4.
+catálogo, administración, holds y órdenes B4 con comprobante privado.
 Para un consumidor SSR autenticado, `createApiClient(apiOrigin, accessToken)`
 envía Bearer. No guardar tokens en URLs ni logs; renovar el cliente al renovar JWT.
 
@@ -161,6 +166,8 @@ del entorno antes de operar. Ver [ADR 0005](docs/decisions/0005-backend-b2-catal
 
 ## Archivos y orden de lectura de Codex
 
+Para operar o integrar pre-reservas, ver la sección B3 al final de este documento.
+
 1. `AGENTS.md`: contexto inmutable, límites, arquitectura y reglas del agente. Debe ubicarse en la raíz del repositorio.
 2. `docs/CONTRATO_API.md`: rutas, payloads, errores, estados y reglas compartidas. Fuente de integración backend-frontend.
 3. `docs/PLAN_BACKEND.md`: fases B0-B8, entregables, esquemas, seguridad y criterios de salida.
@@ -226,3 +233,102 @@ app-sorteos/
 ## Aviso de alcance
 
 No está decidido un proveedor de mensajería, una pasarela de pago, un mecanismo definitivo de elección de ganadores ni la operativa reglamentaria. No inventarlos. El lanzamiento con rifas reales queda bloqueado hasta verificar permisos, reglas del sorteo y cumplimiento dominicano. La referencia visual pública (Rifas Luxury RD) es inspiración funcional, no una autorización para copiar marca, imágenes ni código ajeno.
+
+## Pre-reservas B3
+
+Aplicar las tres migraciones en una DB **local** mediante `npm run db:migrate:local`.
+La migración B3 está preparada y validada localmente; no se aplica a Supabase por
+arrancar la API. B1/B2 remotas permanecen intactas. Variables nuevas en
+[.env.example](apps/api/.env.example); en staging/production es obligatoria una
+clave privada aleatoria CHECKOUT_ABUSE_HASH_KEY de al menos 32 caracteres,
+compartida entre instancias del backend. No exponerla como NEXT_PUBLIC_.
+
+Frontend: inicializar `POST /api/v1/checkout-session` con credentials include y
+esperar respuesta antes de enviar `POST /api/v1/checkout-holds`. El navegador
+añade Origin; el backend exige un origen de CORS_ORIGINS. Conservar un UUID
+Idempotency-Key por intención y reutilizarlo en reintentos del mismo payload.
+La cookie HttpOnly es la credencial, nunca el ID de hold. Usar el cliente tipado
+regenerado; no guardar cookies o tokens en localStorage. Web y API deben estar
+bajo el mismo sitio para el envío de cookie SameSite=Lax.
+
+El hold responde cantidad, snapshot de precio/total, estado y expiresAt; no
+responde números ni crea orden. GET/DELETE checkout-holds/:id requieren la misma
+sesión. Cambiar cantidad requiere cancelar y crear con otra clave, sin garantía
+de cupo. Un hold vencido/cancelado no se reactiva al repetir la clave. Antes de
+una nueva intención, checkout-session renueva 24 horas conservando el secreto.
+
+TTL 60 min, máximo técnico 100 boletos/hold y los límites de la rifa. Defaults:
+1 activo/sesión, 3/IP, 20 altas exitosas/IP/hora y 60 sesiones nuevas/IP/hora.
+Rechazo con 429; sin proveedor CAPTCHA configurado. El job barre cada 30 s
+mientras la API esté activa; nunca libera RESERVED/SOLD ni cancela órdenes.
+La API no confía en X-Forwarded-For: revisar identidad de proxy antes de desplegar.
+
+Verificación Windows reproducible (PostgreSQL 17 instalado):
+
+```powershell
+# Toda la integración, con contraseña SCRAM como CI:
+powershell -NoProfile -File scripts/test-backend-local.ps1 -PasswordAuthentication
+# Solo B3:
+powershell -NoProfile -File scripts/test-backend-local.ps1 -PasswordAuthentication -TestScript test:checkout
+```
+
+SCRAM crea un cluster aislado nuevo en .tmp por ejecución, con contraseña de
+prueba aleatoria, elimina el archivo de inicialización y detiene su servidor
+al finalizar. Las DB/roles de cada suite se eliminan; el cluster detenido queda
+en .tmp para diagnóstico. No modifica el servicio PostgreSQL del sistema.
+En CI Linux: `pnpm test:integration` con TEST_DATABASE_URL loopback de pruebas.
+Algoritmo, límites y recuperación en [ADR 0006](docs/decisions/0006-backend-b3-holds.md).
+
+## Órdenes y comprobantes B4
+
+Requiere las cuatro migraciones en una DB local, sesión B3, rifa apta y cuenta
+bancaria habilitada. No convertir el seed DEMO en una cuenta real ni transferir
+dinero para probar. El seed sigue siendo un fixture histórico DRAFT y privado;
+las suites crean sus propias cuentas ficticias y archivos válidos en entornos aislados.
+
+Para Storage real, preparar un bucket **privado** del proyecto propio, sin acceso
+de cliente no autorizado, diferente del bucket público de premios. Configurar
+solo en `apps/api/.env`: PRIVATE_RECEIPT_BUCKET, RECEIPT_MAX_BYTES (5242880 por
+defecto) y SUPABASE_STORAGE_KEY (sb_secret_ o service_role legado de servidor).
+No compartir esa clave por chat, logs ni NEXT_PUBLIC_. B4 no crea buckets ni
+políticas remotamente. Sin clave/bucket privado correcto, nuevos envíos fallan
+con STORAGE_UNAVAILABLE; no hay fallback que finja guardar el comprobante.
+
+POST `/api/v1/orders` recibe multipart con holdId, nombre/teléfono/**correo
+obligatorio**, banco, referencia, fecha con zona horaria, reglas aceptadas y un
+archivo JPG/PNG/PDF. Reutilizar Idempotency-Key para la misma intención/archivo.
+Solo después del commit responde PENDING_REVIEW, REPORTED, total y números
+reservados con ceros. Un adjunto no equivale a pago recibido. GET `/orders/:code`
+requiere la misma cookie y no devuelve PII, comprobante ni una URL de Storage.
+
+El cliente generado incluye `OrderSubmission` (receipt: Blob) y `submitOrder`:
+
+```ts
+import { createApiClient, submitOrder } from '@sorteos/api-client';
+const api = createApiClient(apiOrigin);
+// form contiene los campos del contrato y receipt: File/Blob; la sesión ya existe.
+const result = await submitOrder(api, form, stableIdempotencyKey, window.location.origin);
+```
+
+El helper construye FormData y deja al navegador generar Content-Type/boundary;
+no fijar Content-Type manualmente. SSR debe reenviar cookie y Origin permitido
+desde una sesión protegida; credentials include en Node no crea un cookie jar.
+La interfaz de formulario corresponde a F4 y no se implementa en la rama backend.
+
+Storage siempre ocurre fuera de la transacción de inventario. Los intentos se
+registran en receipt_staging; rollback o duplicados compensan archivos temporales.
+Job cada 60 s limpia intentos vencidos (margen de 10 min) y reintenta fallos;
+nunca elimina ATTACHED. Máximo 4 uploads simultáneos por instancia, 2 pendientes
+vigentes por sesión y 20 intentos de staging/sesión/hora. Validación estructural
+no sustituye antivirus ni protección DDoS en el borde.
+
+```powershell
+powershell -NoProfile -File scripts/test-backend-local.ps1 -PasswordAuthentication -TestScript test:orders
+# Si el puerto de pruebas está ocupado, usar otro, sin detener esa instancia:
+powershell -NoProfile -File scripts/test-backend-local.ps1 -PasswordAuthentication -Port 54342
+```
+
+Pruebas locales usan PostgreSQL real y un servidor de protocolo Storage; el
+adaptador de producto usa el SDK real. Falta configuración/verificación del
+bucket remoto y aplicar B3/B4 con autorización. No se desplegó ni publicó una rifa.
+Ver [ADR 0008](docs/decisions/0008-backend-b4-order-receipts.md).

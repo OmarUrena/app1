@@ -21,11 +21,13 @@ proyecto propio, las rutas admin fallan cerrado con 503.
 | Configuración | PASS | npm run test:config: 7 pruebas |
 | Fundamentos y herramientas | PASS | npm test: 13 pruebas |
 | Persistencia y HTTP B2 | PASS | test-backend-local.ps1: 40 pruebas, 20 de B2 y 20 previas |
+| Integración con contraseña SCRAM | PASS | 2026-11-03: 40/40 en cluster temporal separado que exige scram-sha-256 |
 | Producción: auditoría | PASS | pnpm audit --prod: 0 alertas, 237 dependencias |
 | Auditoría completa | WARN | Aviso moderado minimatch en 3 rutas de herramientas, ya registrado en B1 |
 | Supabase remoto: esquema y lecturas | PASS | B1/B2 aplicadas con autorización; 13 tablas RLS y pruebas HTTP del API correctas |
-| Supabase remoto: login de administrador | SKIPPED | Falta elegir/provisionar un UUID Auth real como OWNER |
-| CI remoto B2 | SKIPPED | Sin publicación de la rama |
+| Supabase remoto: allowlist OWNER | PASS | UUID autorizado por el usuario, identidad Auth existente y alta auditada el 2026-11-03 |
+| Supabase remoto: login de administrador | PENDIENTE | OWNER activo; falta ejecutar una petición con su sesión real |
+| CI remoto B2 | FAIL en revisión | La rama está publicada; falló integración en el commit d25c8df. Corrección local de autenticación del login de prueba pendiente de nueva ejecución remota |
 
 Las suites SQL previas de B1 pasan con ambas migraciones. Las 20 pruebas nuevas
 de B2 verifican JWT firmado, firma ajena/expiry/aud/iss/HS256, allowlist/metadata,
@@ -76,6 +78,39 @@ Mantener tokens fuera de URLs, logs y almacenamiento persistente del comprador.
 
 B2 habilita F2 (catálogo real). Próxima fase backend: B3, pre-reservas técnicas,
 CSPRNG, TTL, límites antiacaparamiento y concurrencia del inventario.
+
+## Continuación del 2026-11-03
+
+Se confirmó que la rama remota contiene el commit d25c8df. El
+[CI Backend](https://github.com/OmarUrena/app1/actions/runs/41404885565) pasó
+instalación, generación sin diferencias, lint, typecheck y pruebas sin DB;
+falló en integración y no llegó al build. GitHub restringió la descarga del log
+completo sin autenticación. El CI frontend de ese commit pasó.
+
+La revisión encontró que el login limitado de integración se creaba sin
+contraseña y que su URL eliminaba la credencial. Esto pasa con el trust local,
+pero impide conectar cuando PostgreSQL exige contraseña, como en el servicio de CI.
+Se corrigió el fixture para crear y usar una contraseña UUID aleatoria y
+desechable, sin ampliar privilegios ni cambiar el producto o las migraciones.
+
+Verificación del 2026-11-03: generate:api sin diferencias; lint, typecheck:api,
+build:api, test:config (7) y test (13) aprobados. Las 40 pruebas de integración
+pasaron primero en el cluster local habitual y luego, con la corrección, en uno
+nuevo en loopback:54340 con auth-host=scram-sha-256 y credenciales aleatorias.
+Ambas instancias temporales se detuvieron al finalizar. Total: 60 pruebas, sin
+fallos ni omitidas. Registros locales ignorados en .tmp/b2-resume-integration.txt
+y .tmp/b2-scram-integration.txt. No se afirma aún éxito del nuevo CI remoto.
+
+Se repitió la comprobación HTTP del backend conectado a Supabase: health/ready,
+catálogo y cuentas públicas devolvieron 200; admin sin JWT devolvió 401. El
+servidor de esta comprobación se cerró al terminar.
+
+El usuario autorizó explícitamente su UUID Auth como OWNER. Se comprobó su
+existencia, que no fuera anónimo, eliminado o bloqueado; se dio de alta en
+admin_users bajo bloqueo y transacción, con evento SYSTEM en audit_logs.
+La comprobación posterior confirmó un OWNER activo y un evento de alta.
+No se crearon usuarios Auth ni se publicaron rifas. La allowlist no sustituye
+la prueba HTTP con una sesión real: esa validación sigue pendiente.
 
 ## Configuración remota de solo lectura
 

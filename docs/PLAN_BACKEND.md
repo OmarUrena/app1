@@ -40,7 +40,7 @@
 2. `raffle_media`: imágenes/orden/alt y clave storage pública de material propio autorizado; imágenes de premios pueden ser públicas.
 3. `tickets`: UUID, `raffle_id`, `number` entero, `status`, `hold_id`/`current_order_id` nullable según estado, `created_at`, `updated_at`; `UNIQUE(raffle_id,number)` y `CHECK number>=0`. La pertenencia exacta a `0..N-1` se garantiza en servicio de creación/transacción con tests y controles; agregar constraint/trigger robusto si necesario.
 4. `checkout_holds`: UUID, `raffle_id`, `quantity`, `unit_price_minor_snapshot`, `expires_at`, `status=ACTIVE|CONSUMED|EXPIRED|CANCELLED`, hash de token/session, IP/huella limitada para abuse-prevention, timestamps e identificador de idempotencia. `hold_tickets` si no se desea FK `hold_id` directo.
-5. `customers`: UUID, nombre, teléfono normalizado (formato E.164, preferencia +1-809/829/849 según validación), email nullable, creado; PII protegida. No suponer que teléfono es identidad por sí solo.
+5. `customers`: UUID, nombre, teléfono normalizado (formato E.164, preferencia +1-809/829/849 según validación), email obligatorio para nuevas órdenes (decisión 2026-11-03), creado; PII protegida. El esquema B1 ya aplicado conserva email nullable: B4 debe incorporar validación y migración compatible sin rellenar históricos con datos inventados. Ni teléfono ni email sin verificar prueban identidad por sí solos.
 6. `orders`: UUID, `order_code` opaco único y no secuencial predecible, `raffle_id`, `customer_id`, `hold_id` único, `ticket_quantity`, `unit_price_minor`, `total_minor`, `currency='DOP'`, `status`, `created_at`, `reviewed_at/by`, `cancel_reason`, `rules_version_snapshot`, hash de credencial segura de consulta, versión de registro. `UNIQUE(idempotency_key)` con scope definido.
 7. `order_tickets`: `order_id`, `ticket_id`, asignado_en, estado/historial; evitar asignación activa doble por PK/índice parcial o FK y check; al cancelar conservar relación histórica y liberación en ledger.
 8. `payment_reports`: UUID, `order_id`, `bank_account_id`, `reference`, `reported_at`, `transfer_date`, `receipt_storage_path`, `receipt_sha256`, `status`, `verified_amount_minor`, `bank_posted_at`, `reviewer_id`, `reviewed_at`, `resolution_note`; solo uno activo inicial por orden, versiones correctivas auditables.
@@ -95,6 +95,8 @@
 
 **Pasos del servidor:**
 1. Validar antiabuso, tamaño <=5 MB configurable, MIME y magic bytes (JPG/PNG/PDF, no SVG/ejecutables), campos, hold token/vigencia y que cantidad/precio coincidan; no confiar en client total.
+   Correo obligatorio, no vacío y con formato válido, máximo 254 caracteres;
+   rechazar ausencia/formato inválido antes del upload y sin crear orden.
 2. Calcular SHA-256 del archivo, rechazar archivos peligrosos según políticas, almacenar preliminarmente en bucket privado mediante cuenta del servidor (`pending/{uuid}`) fuera de una transacción DB larga; crear política de limpieza de huérfanos; si storage falla, no crear orden. Nunca emitir URL pública.
 3. Transacción DB: lock raffle -> hold y tickets; comprobar hold ACTIVE/no vencido; idempotencia transaccional y `hold_id` consumible una sola vez; crear/upsert seguro cliente, orden, `order_tickets`, reporte de pago con path del archivo y estado REPORTED, convertir `HELD` en `RESERVED`, marcar hold CONSUMED, auditoría y commit.
 4. Tras commit: 201 con código no adivinable, estado PENDING_REVIEW, cantidad, total, vencimiento nulo de orden y números formateados; sesión de consulta segura. Si fallo, compensar archivo huérfano y permitir reintento seguro.
@@ -148,6 +150,11 @@
 - Carga concurrente con últimas existencias, reintentos aleatorios, expiración del hold durante upload; medir percentiles p50/p95 y errores, sin inventar SLA.
 - Validación de entradas, validación archivo por firma, antivírus/escaneo si disponible, extensión/MIME, rate limiting, CAPTCHA, permisos IDOR, CORS/CSRF según cookies, CSP, cabeceras y gestión de tokens.
 - Seguridad de PII, retención y observabilidad sin log de contenido de comprobante, phone o token.
+- Resiliencia DDoS antes de producción: protección en el borde para web y API,
+  impedir acceso directo al origen que eluda esa protección, límites HTTP
+  compartidos entre instancias, identidad de proxy confiable, cuotas/timeouts
+  y alertas de saturación/coste. Verificarlo en el hosting elegido; los límites
+  de holds y las pruebas de integridad concurrente no certifican resistencia DDoS.
 - Simular caída Storage, DB, pérdida de red, dos admins a la vez, cambio de estado después de review, y errores de limpieza huérfana.
 - Backup + restauración ensayada; no considerar un backup listo si no se probó restaurar.
 

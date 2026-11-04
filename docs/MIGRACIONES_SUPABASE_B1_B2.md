@@ -56,10 +56,23 @@ ni se alteró como parte de estas migraciones.
 
 ## Pendientes de operación
 
-- Elegir un usuario real de Supabase Auth y autorizar explícitamente su UUID como
-  OWNER antes de probar administración autenticada. No se concede por email ni por registro.
+- OWNER autorizado y provisionado el 2026-11-03 (ver actualización debajo).
+  Falta probar administración HTTP con una sesión real de ese usuario.
 - Preparar las imágenes propias y su bucket público cuando se configure la primera rifa.
 - Usar un login dedicado de runtime antes de un despliegue productivo; separar
   las credenciales del migrador. El rol limitado ya está preparado y verificado.
 - Esta entrega aplica esquema y comprueba lecturas; no publica sitio ni rifa,
   realiza pagos ni prueba una compra real.
+
+## Alta operativa de OWNER — 2026-11-03
+
+Después de la aplicación inicial, el usuario seleccionó explícitamente un UUID
+de Supabase Auth y autorizó su rol OWNER. Se comprobó la identidad existente,
+no anónima, no eliminada y sin bloqueo vigente; la allowlist estaba vacía.
+El alta manual de operación se ejecutó en transacción bajo el mismo bloqueo
+de bootstrap, con contexto SYSTEM y request_id, sin cambiar roles existentes.
+La verificación independiente confirmó OWNER activo y un evento INSERT en
+audit_logs. No se alteró Auth, su contraseña, Storage ni el historial de migraciones.
+Los comandos locales siguen rechazando bases remotas. No se guardan UUID personales
+en este documento ni se solicita enviar contraseñas o tokens al chat.
+La prueba de acceso HTTP con la sesión real del propietario continúa pendiente.

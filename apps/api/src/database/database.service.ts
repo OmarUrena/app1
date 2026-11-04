@@ -23,13 +23,13 @@ export class DatabaseService implements OnModuleDestroy {
     try { await this.pool.query('SELECT 1'); return 'up'; } catch { return 'down'; }
   }
 
-  async transaction<T>(work: (client: PoolClient) => Promise<T>, readOnly = false): Promise<T> {
+  async transaction<T>(work: (client: PoolClient) => Promise<T>, readOnly = false, consistent = false): Promise<T> {
     if (!this.pool) throw new ServiceUnavailableException({ code:'DATABASE_NOT_CONFIGURED' });
     let client: PoolClient;
     try { client = await this.pool.connect(); }
     catch { throw new ServiceUnavailableException({ code:'DATABASE_UNAVAILABLE' }); }
     try {
-      await client.query(readOnly ? 'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY' : 'BEGIN');
+      await client.query(readOnly ? 'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY' : consistent?'BEGIN ISOLATION LEVEL REPEATABLE READ':'BEGIN');
       await client.query('SET LOCAL ROLE sorteos_runtime');
       const result = await work(client);
       await client.query('COMMIT');

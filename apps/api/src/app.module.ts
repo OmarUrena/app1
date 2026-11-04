@@ -1,4 +1,14 @@
 import { DynamicModule, Module } from '@nestjs/common';
+import { CheckoutController } from './checkout/checkout.controller';
+import { CheckoutService } from './checkout/checkout.service';
+import { MulterModule } from '@nestjs/platform-express';
+import { OrdersController, OrderUploadGuard, UploadCapacityInterceptor } from './orders/orders.controller';
+import { OrdersService } from './orders/orders.service';
+import { ReceiptService } from './orders/receipt.service';
+import { PrivateStorageService } from './orders/private-storage.service';
+import { PaymentsController } from './payments/payments.controller';
+import { PaymentsService } from './payments/payments.service';
+import { FinancialAuthorization, FinancialGuard } from './auth/financial.guard';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { APP_CONFIG, AppConfig } from './config/config';
@@ -14,10 +24,13 @@ export class AppModule {
   static register(config: AppConfig): DynamicModule {
     return {
       module: AppModule,
-      imports: [ThrottlerModule.forRoot([{ ttl: config.rateTtlMs, limit: config.rateLimit }])],
-      controllers: [HealthController,PublicRafflesController,PublicBankAccountsController,AdminRafflesController],
+      imports: [ThrottlerModule.forRoot([{ ttl: config.rateTtlMs, limit: config.rateLimit }]),
+        MulterModule.register({limits:{fileSize:config.receiptMaxBytes,files:1,fields:9,parts:10,fieldNameSize:64,fieldSize:512}})],
+      controllers: [HealthController,PublicRafflesController,PublicBankAccountsController,AdminRafflesController,CheckoutController,OrdersController,PaymentsController],
       providers: [
-        { provide: APP_CONFIG, useValue: config }, DatabaseService,AdminGuard,CatalogService,MediaService,
+        { provide: APP_CONFIG, useValue: config }, DatabaseService,AdminGuard,CatalogService,MediaService,CheckoutService,
+        OrdersService,ReceiptService,PrivateStorageService,OrderUploadGuard,UploadCapacityInterceptor,
+        PaymentsService,FinancialAuthorization,FinancialGuard,
         { provide: APP_GUARD, useClass: ThrottlerGuard },
       ],
     };

@@ -43,3 +43,23 @@ La suite B2 prueba el down vacío, el rechazo con datos, la reparación de la
 versión mediante `supabase migration repair --status reverted` del mismo CLI
 y la reaplicación con `db push`. No se escribe directamente en el ledger ni se
 introduce un segundo sistema de migraciones. Con datos reales usar forward-only.
+
+## Recuperación selectiva B3
+
+`b3-down-empty.sql` exige ausencia total de datos, retira la tabla de contadores,
+índices/columna de abuso, trigger B3 y sus permisos/políticas; restaura B2.
+Ejecutar en transacción y reparar exclusivamente la versión
+20261104022108 con el CLI oficial antes de reaplicar. Para revertir B2, primero
+revertir B3 y reparar ambas versiones en orden inverso. La suite B3 verifica
+rechazo con seed, down vacío, permisos B2, reparación oficial y reaplicación.
+Con datos de negocio/ledger se exige migración correctiva, no down.
+
+## Recuperación selectiva B4
+
+`b4-down-empty.sql` se ejecuta en transacción solo con todas las tablas vacías:
+retira staging, constraint de correo nuevo, trigger de comprobante adjunto y
+permisos de escrituras de orden, conservando B3. Reparar la versión
+20261104030210 con CLI oficial antes de reaplicar. Para una fase anterior,
+revertir B4 primero. Las suites prueban bloqueo con datos, down vacío, permisos
+anteriores y reaplicación. No borrar comprobantes ATTACHED ni histórico para
+forzar este procedimiento; con datos, migración correctiva y backup ensayado.

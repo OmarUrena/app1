@@ -7,7 +7,8 @@ import { APP_CONFIG, AppConfig } from '../config/config';
 import { DatabaseService } from '../database/database.service';
 
 export interface AdminIdentity { id: string; authUserId: string; role: 'OWNER' | 'ADMIN' }
-export type AdminRequest = Request & { admin: AdminIdentity };
+export interface AdminProof {sessionId:string;aal:string;mfaAt:number}
+export type AdminRequest = Request & { admin: AdminIdentity; adminProof:AdminProof };
 
 @Injectable()
 export class AdminGuard implements CanActivate {
@@ -26,6 +27,7 @@ export class AdminGuard implements CanActivate {
       throw new ServiceUnavailableException({code:'AUTH_UNAVAILABLE'});
     }
     let subject: string;
+    let proof:AdminProof;
     try {
       const { payload } = await jwtVerify(token,this.jwks,{
         issuer:`${this.config.supabaseUrl}/auth/v1`, audience:'authenticated', algorithms:['ES256','RS256'],
@@ -34,6 +36,11 @@ export class AdminGuard implements CanActivate {
       if (!payload.sub || !isUUID(payload.sub) || !isUUID(String(payload.session_id))
         || payload.role !== 'authenticated' || payload.is_anonymous === true) throw new UnauthorizedException();
       subject = payload.sub;
+      const methods=Array.isArray(payload.amr)?payload.amr:[];
+      const mfaAt=Math.max(0,...methods.filter((m:unknown):m is {method:string;timestamp:number}=>
+        typeof m==='object'&&m!==null&&'method'in m&&m.method==='totp'&&'timestamp'in m&&Number.isSafeInteger(m.timestamp))
+        .map(m=>m.timestamp));
+      proof={sessionId:String(payload.session_id),aal:String(payload.aal??'aal1'),mfaAt};
     } catch (error) {
       if (error instanceof UnauthorizedException) throw error;
       const code = typeof error === 'object' && error !== null && 'code' in error ? String(error.code) : '';
@@ -69,6 +76,7 @@ export class AdminGuard implements CanActivate {
     });
     if (!admin) throw new ForbiddenException();
     request.admin = { id:admin.id, authUserId:admin.authUserId, role:admin.role };
+    request.adminProof=proof;
     return true;
   }
 }

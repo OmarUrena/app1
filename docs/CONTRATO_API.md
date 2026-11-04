@@ -29,9 +29,9 @@
   `/api/v1/docs`. Ambos solo si Swagger está habilitado en desarrollo/test.
   Generación offline del esquema mediante `pnpm generate:api` (requiere dependencias).
 
-En B2 están implementados el catálogo, cuentas públicas y las rutas de administración
-de rifas detalladas más abajo. Holds, órdenes, revisión de pagos y reportes siguen
-siendo objetivos de B3–B6. El JSON OpenAPI contiene solo las rutas implementadas.
+En B4 están implementados catálogo, cuentas públicas, administración de rifas,
+sesión invitada, pre-reservas y envío/consulta de órdenes con comprobante privado.
+Revisión de pagos y reportes siguen pendientes de B5–B6.
 
 ### `GET /raffles?page=1&pageSize=12`
 **200:** `{items:[{id,slug,title,prizeImageUrl,status,ticketPriceMinor,totalTickets,confirmedSoldCount,availableCount}],pagination:{...}}`.
@@ -46,11 +46,34 @@ ser null; las imágenes proceden del bucket público de premios configurado.
 ### `GET /raffles/:slug/availability`
 **200:** `{total,available,held,reserved,sold,asOf}`. Invariante `total=available+held+reserved+sold` cuando no hay VOID. Lo único que garantiza compra es una pre-reserva exitosa.
 `held` solo cuenta pre-reservas vigentes; HELD vencidos se computan como disponibles
-sin cambiar inventario en el GET. La liberación transaccional se implementará en B3.
+sin cambiar inventario en el GET de disponibilidad. B3 libera transaccionalmente
+al operar holds y mediante un barrido periódico.
 RESERVED nunca se reclasifica por tiempo.
 
 ### `GET /bank-accounts/public`
 **200:** `{items:[{id,bankName,accountType,accountDisplay,holderName,currency:'DOP'}]}`. Solo cuentas publicadas por admin, datos destinados a recibir transferencias.
+
+### `POST /checkout-session` — B3
+
+Antes de la primera pre-reserva, llamar con `Origin` de la allowlist y
+`credentials:'include'`. Responde 201 `{ready:true}` y establece cookie
+`__Host-sorteos_guest` en staging/production; en development/test `sorteos_guest`.
+Es HttpOnly, SameSite=Lax, Path=/ y Secure en entornos desplegados. Caduca a las
+24 horas; repetir con sesión vigente renueva el plazo y conserva el secreto.
+No devuelve credenciales en JSON. El servidor guarda SHA-256 del secreto de
+256 bits; no se utiliza UUID público como credencial.
+
+Este paso separado permite reintentar un hold cuya respuesta se perdió sin
+perder también su sesión. Esperar la respuesta antes de enviar holds y mantener
+una sola inicialización de sesión a la vez en el cliente. Una cookie inválida o
+vencida se reemplaza; no recupera holds de sesiones anteriores. Si la respuesta
+inicial de sesión se pierde, repetirla puede crear una sesión vacía adicional,
+sujeta al límite por IP; no crea órdenes ni asigna boletos.
+
+POST/DELETE exigen Origin válido y rechazan Sec-Fetch-Site: cross-site.
+Desplegar web/API bajo el mismo sitio para que SameSite=Lax permita la cookie;
+una integración SSR debe reenviar esa cookie de forma protegida. No hay token
+en querystrings, body ni localStorage. Sin sesión vigente: 401 SESSION_INVALID.
 
 ### `POST /checkout-holds`
 **Header:** `Idempotency-Key: 0b30...` + `Origin` válido.
@@ -75,8 +98,37 @@ RESERVED nunca se reclasifica por tiempo.
 ```
 **No devuelve números.** Si insuficiencia => 409 `INSUFFICIENT_TICKETS`; si límites => 422 `INVALID_QUANTITY`; 429 abuso.
 
+Requiere cookie de sesión obtenida previamente. Solo acepta raffleId y quantity;
+rechaza precios, números y campos desconocidos. La cantidad respeta min/max de
+rifa y HOLD_MAX_QUANTITY (100 por defecto). Se valida PUBLISHED y ventana de
+venta con hora DB; en otro caso 409 RAFFLE_NOT_AVAILABLE. TTL inicial 60 minutos.
+La sesión debe durar al menos ese TTL; si falta plazo, 401 SESSION_INVALID:
+renovar checkout-session con la misma cookie antes de crear el hold.
+
+Idempotencia única por sesión y UUID de cabecera, incluso entre rifas. Mismo
+payload devuelve 201 con el mismo hold, precio y vencimiento; serverTime refleja
+la consulta actual. Distinto payload: 409 IDEMPOTENCY_CONFLICT. El reintento de
+un hold vencido/cancelado/consumido devuelve su estado actual, nunca lo reactiva
+ni sustituye: para otra intención se requiere una clave nueva. No hay renovación
+de TTL por reintentos o lecturas. Cambiar cantidad requiere cancelar el hold
+anterior y crear otro, sujeto a disponibilidad y límites; no hay reemplazo garantizado.
+
+Defaults: 1 hold vigente/sesión, 3/IP, 20 nuevas pre-reservas exitosas/IP/hora,
+60 sesiones nuevas/IP/hora. Límites compartidos por DB; fallan con 429
+RATE_LIMITED. Las cancelaciones no reinician el cupo horario. IP mediante HMAC
+privada estable, sin guardar IP cruda ni confiar en X-Forwarded-For del cliente.
+El throttling HTTP general añade límite por proceso a intentos fallidos.
+
 ### `GET /checkout-holds/:id`
 Requiere sesión invitado propietaria, devuelve estado/importe/expiración **sin números**; 404 para otros. `DELETE /checkout-holds/:id` opcional, sujeto a sesión y auditoría.
+
+Ambos endpoints están implementados. GET libera el hold si venció y devuelve
+200 con EXPIRED. DELETE de ACTIVE devuelve 200 CANCELLED y libera solo sus HELD;
+repetir conserva CANCELLED/EXPIRED; CONSUMED devuelve 409 HOLD_CONSUMED.
+Un job por instancia barre hasta 20 rifas/ciclo (30 segundos por defecto),
+omite rifas bloqueadas y reintenta después. Nunca libera RESERVED ni SOLD,
+ni modifica una orden por antigüedad. La liberación lazy ocurre dentro de la
+transacción de la operación y se revierte si esa operación falla.
 
 ### `POST /orders` — UN SOLO SUBMIT de orden + pago
 `multipart/form-data`, con campos concretos:
@@ -84,20 +136,63 @@ Requiere sesión invitado propietaria, devuelve estado/importe/expiración **sin
 - `idempotencyKey`: UUID estable (también cabe en header).
 - `customerName`: nombre completo, longitud validada.
 - `customerPhone`: teléfono normalizado en backend.
-- `customerEmail`: opcional.
+- `customerEmail`: obligatorio, no vacío y con formato válido (máximo 254 caracteres).
 - `bankAccountId`: UUID de cuenta activa.
 - `bankReference`: referencia de transferencia, texto seguro validado.
 - `transferDate`: fecha/hora reportada por cliente (no equivale a confirmación bancaria).
 - `receipt`: imagen JPG/PNG o PDF, obligatorio, 5MB máximo inicial configurable.
 - `acceptedRulesVersion`: versión de reglas/condiciones aceptadas.
 
+Decisión del 2026-11-03: el correo es obligatorio para nuevas órdenes y debe
+validarse tanto en F4 como en B4 antes de subir el archivo o crear la orden.
+Recogerlo no implica verificar su titularidad ni autoriza acceso a la orden;
+no se añade OTP ni envío de mensajes sin definir ese flujo. B4 valida el correo
+en DTO y exige presencia en nuevas escrituras mediante CHECK NOT VALID, sin
+rellenar datos históricos ni editar la migración B1 aplicada.
+
+El endpoint está implementado en B4. Usa la cookie de B3; no recibe un token
+en body ni URL. Exige Origin válido. Idempotency-Key UUID en cabecera o campo
+idempotencyKey; si ambos están presentes deben coincidir. Campos desconocidos,
+arrays o duplicados no válidos se rechazan; no acepta precios ni números.
+Teléfono se normaliza a E.164 quitando separadores de presentación; admite
+prefijos internacionales. Campos de texto se recortan. transferDate debe incluir
+zona horaria y no superar la hora DB en más de 5 min. Banco activo y no DEMO.
+
+acceptedRulesVersion debe coincidir con snapshot y reglas vigentes; cambio:
+409 RULES_CHANGED. Hold vigente de una rifa PUBLISHED o PAUSED puede finalizar:
+la pausa impide nuevos holds, no invalida por sí sola una transferencia en curso.
+Rifa CLOSED/DRAWN no admite envío. Las reglas/banco/hold/sesión se revalidan
+después de Storage y antes de confirmar. Si el hold venció/canceló, 409 HOLD_EXPIRED;
+si ya fue consumido por otra clave, 409 HOLD_CONSUMED, sin asignar sustitutos.
+
+Archivos: 5 MiB por defecto, límite configurable hasta 10 MiB; un solo archivo.
+MIME y firma JPG/PNG/PDF, decodificación completa de imágenes (hasta 10 millones
+de píxeles, sin animación) y parseo PDF 1.0–1.7 (1–20 páginas, sin cifrado ni
+acciones/formularios/adjuntos activos admitidos). No se confía en nombre/extensión.
+Se conserva el original y su SHA-256, no una URL pública. Validación aislada en
+worker, máximo 10 s y heap acotado; no equivale a escaneo antivirus certificado.
+Como máximo 4 uploads por instancia y 2 validaciones simultáneas. Cada sesión
+puede tener 2 cargas pendientes vigentes y 20 intentos de staging por hora;
+exceso: 429. Los límites HTTP de B0 y la sesión de B3 siguen aplicándose.
+
+Storage requiere clave privada de servidor y bucket diferente del público de
+premios; se comprueba public=false antes del upload y se usa upsert=false.
+Sin configuración o Storage disponible no se crea una orden nueva (503).
+receipt_staging registra cada intento antes del I/O. Upload fuera de transacciones;
+commit enlaza staging y reporte en la misma transacción que el inventario.
+Rollback o intento concurrente perdedor compensa su archivo; si hubo resultado
+ambiguo del upload, un job lo limpia tras 10 min. Job cada 60 s, hasta 20 filas
+por ciclo, con reintentos si falla borrar. Un staging reclamado para limpieza
+ya no puede adjuntarse a una orden. Nunca borrar ATTACHED automáticamente.
+
 **201 ejemplo tras creación y commit atómico:**
 ```json
 {
-  "orderCode":"RF-X7K2M9P4",
+  "orderCode":"RF-0123456789ABCDEF0123456789ABCDEF",
   "status":"PENDING_REVIEW",
   "paymentReportStatus":"REPORTED",
   "raffleId":"11111111-1111-4111-8111-111111111111",
+  "raffleTitle":"RIFA DE DEMOSTRACIÓN",
   "quantity":3,
   "ticketNumbers":["00184","03592","08731"],
   "totalMinor":30000,
@@ -110,10 +205,23 @@ Requiere sesión invitado propietaria, devuelve estado/importe/expiración **sin
 
 **Errores relevantes:** 400 `INVALID_REQUEST`, 401/403 `SESSION_INVALID`, 409 `HOLD_EXPIRED`, 409 `HOLD_CONSUMED`, 409 `RAFFLE_NOT_AVAILABLE`, 409 `IDEMPOTENCY_CONFLICT`, 413 `FILE_TOO_LARGE`, 415 `UNSUPPORTED_FILE_TYPE`, 422 `INVALID_RECEIPT`, 503 `STORAGE_UNAVAILABLE`.
 
-**Respuesta perdida:** mismo idempotencyKey + misma sesión + mismos campos => misma orden y mismos tickets, sin duplicación. Si payload cambia => 409. Si la orden ya se creó, no perderla aunque la UI no haya recibido el primer 201.
+**Respuesta perdida:** mismo idempotencyKey + misma sesión + mismos campos y
+archivo (SHA-256 del original) => misma orden y mismos tickets, sin duplicación.
+Si payload cambia => 409 IDEMPOTENCY_CONFLICT. El nombre del archivo no forma
+parte del fingerprint. Si la orden ya existe no se repite el upload; se devuelve
+su estado actual, incluso si el hold ya aparece CONSUMED. Sin archivo también
+se rechaza un retry: para consultar sin reenviar, usar GET protegido.
 
 ### `GET /orders/:orderCode`
-Requiere guest session propietaria y/o verificación OTP futura; no basta conocer código. **200:** `{orderCode,status,raffle:{title},ticketNumbers,quantity,totalMinor,createdAt,paymentStatus}`. No devolver comprobante ni cuenta sensible. `404` para órdenes ajenas (evitar enumeración).
+Implementado: requiere guest session propietaria; no basta conocer código.
+**200:** mismo OrderDto que POST: `{orderCode,status,paymentReportStatus,raffleId,
+raffleTitle,ticketNumbers,quantity,totalMinor,currency,createdAt,message}`.
+Se unifica el DTO de consulta/submit para el cliente tipado. No devuelve nombre,
+teléfono, correo, comprobante o cuenta sensible. Sin sesión válida 401;
+con otra sesión o código desconocido 404. Accesos propios auditados.
+La cookie de B3 tiene plazo renovable de 24 h; las órdenes no expiran con ella.
+Perderla o dejarla vencer requiere una recuperación verificada futura; B4 no
+habilita consulta pública por email/teléfono ni implementa OTP.
 
 ## Endpoints administrativos (JWT + admin_users activo + autorización)
 

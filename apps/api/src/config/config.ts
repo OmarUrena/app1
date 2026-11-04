@@ -1,3 +1,6 @@
+import { randomBytes } from 'node:crypto';
+
+const developmentAbuseKey = randomBytes(32).toString('hex');
 export interface AppConfig {
   environment: 'development' | 'test' | 'staging' | 'production';
   host: string;
@@ -13,6 +16,17 @@ export interface AppConfig {
   supabaseUrl?: string;
   supabasePublishableKey?: string;
   publicMediaBucket: string;
+  holdTtlMinutes: number;
+  holdMaxQuantity: number;
+  holdMaxActiveSession: number;
+  holdMaxActiveIp: number;
+  holdHourlyIp: number;
+  sessionHourlyIp: number;
+  holdSweepMs: number;
+  abuseHashKey: string;
+  receiptBucket:string;
+  storageKey?:string;
+  receiptMaxBytes:number;
 }
 
 export const APP_CONFIG = Symbol('APP_CONFIG');
@@ -37,6 +51,8 @@ export function parseConfig(env: NodeJS.ProcessEnv): AppConfig {
     throw new Error('Configuración inválida: NODE_ENV');
   }
   const deployed = environment === 'production' || environment === 'staging';
+  const abuseHashKey=env.CHECKOUT_ABUSE_HASH_KEY || (deployed ? '' : developmentAbuseKey);
+  if (abuseHashKey.length<32) throw new Error('CHECKOUT_ABUSE_HASH_KEY requiere al menos 32 caracteres');
   const corsOrigins = (env.CORS_ORIGINS ?? (deployed ? '' : 'http://localhost:3000'))
     .split(',').map((origin) => origin.trim()).filter(Boolean);
   if (corsOrigins.length === 0 || corsOrigins.some((origin) => {
@@ -75,6 +91,16 @@ export function parseConfig(env: NodeJS.ProcessEnv): AppConfig {
   const publicMediaBucket = env.PUBLIC_RAFFLE_BUCKET ?? 'raffle-media';
   if (!/^[a-z0-9][a-z0-9-]{0,62}$/.test(publicMediaBucket)) throw new Error('PUBLIC_RAFFLE_BUCKET inválido');
   const supabasePublishableKey=env.SUPABASE_PUBLISHABLE_KEY||undefined;
+  const receiptBucket=env.PRIVATE_RECEIPT_BUCKET??'receipts';
+  if(!/^[a-z0-9][a-z0-9-]{0,62}$/.test(receiptBucket) || receiptBucket===publicMediaBucket)throw new Error('PRIVATE_RECEIPT_BUCKET inválido o compartido con premios');
+  const storageKey=env.SUPABASE_STORAGE_KEY||undefined;
+  if(storageKey && (!/^[a-zA-Z0-9_.-]{24,4096}$/.test(storageKey)))throw new Error('SUPABASE_STORAGE_KEY inválida');
+  if(storageKey && !storageKey.startsWith('sb_secret_')) {
+    try {
+      const payload=JSON.parse(Buffer.from(storageKey.split('.')[1]??'','base64url').toString()) as {role?:string};
+      if(payload.role!=='service_role')throw new Error();
+    }catch{throw new Error('SUPABASE_STORAGE_KEY debe ser una clave secreta de servidor');}
+  }
   if (supabasePublishableKey && (!/^[a-zA-Z0-9_.-]{8,4096}$/.test(supabasePublishableKey)
     || supabasePublishableKey.startsWith('sb_secret_'))) throw new Error('SUPABASE_PUBLISHABLE_KEY inválida');
   return {
@@ -87,6 +113,15 @@ export function parseConfig(env: NodeJS.ProcessEnv): AppConfig {
     rateTtlMs: integer(env.RATE_TTL_MS, 60000, 'RATE_TTL_MS', 3600000),
     databaseUrl, databaseSsl, databaseCa: env.DATABASE_CA?.replace(/\\n/g, '\n'),
     supabaseUrl, supabasePublishableKey, publicMediaBucket,
+    holdTtlMinutes:integer(env.HOLD_TTL_MINUTES,60,'HOLD_TTL_MINUTES',720),
+    holdMaxQuantity:integer(env.HOLD_MAX_QUANTITY,100,'HOLD_MAX_QUANTITY',1000),
+    holdMaxActiveSession:integer(env.HOLD_MAX_ACTIVE_SESSION,1,'HOLD_MAX_ACTIVE_SESSION',10),
+    holdMaxActiveIp:integer(env.HOLD_MAX_ACTIVE_IP,3,'HOLD_MAX_ACTIVE_IP',1000),
+    holdHourlyIp:integer(env.HOLD_HOURLY_IP,20,'HOLD_HOURLY_IP',10000),
+    sessionHourlyIp:integer(env.CHECKOUT_SESSION_HOURLY_IP,60,'CHECKOUT_SESSION_HOURLY_IP',10000),
+    holdSweepMs:integer(env.HOLD_SWEEP_MS,30000,'HOLD_SWEEP_MS',3600000),
+    abuseHashKey,
+    receiptBucket,storageKey,receiptMaxBytes:integer(env.RECEIPT_MAX_BYTES,5242880,'RECEIPT_MAX_BYTES',10485760),
   };
 }
 
