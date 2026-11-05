@@ -19,5 +19,7 @@ export function readEnvironment(env: EnvironmentInput) {
     if (["staging", "production"].includes(appEnv) && url.protocol !== "https:") throw new Error("La API requiere HTTPS en staging/producción.");
     apiBaseUrl = url.toString().replace(/\/$/, "");
   }
-  return { mode, appEnv, apiBaseUrl } as const;
+  const receiptMaxBytes = Number(env.RECEIPT_MAX_BYTES ?? 5242880);
+  if (!Number.isSafeInteger(receiptMaxBytes) || receiptMaxBytes < 1 || receiptMaxBytes > 10485760) throw new Error("RECEIPT_MAX_BYTES debe ser un entero entre 1 y 10485760, coherente con la API.");
+  return { mode, appEnv, apiBaseUrl, receiptMaxBytes } as const;
 }

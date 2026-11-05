@@ -361,3 +361,23 @@ main:focus { outline: none; }
 .checkout-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-block: 20px; }
 .bank-preview { border-top: 1px solid var(--line); padding-top: 24px; }
 @media (min-width: 1024px) { .checkout-grid { grid-template-columns: 1fr 1fr; align-items: start; } }
+
+.order-panel { grid-column: 1 / -1; }
+.order-form { max-width: 760px; margin-inline: auto; }
+.order-form fieldset { border: 0; padding: 0; margin: 28px 0; min-width: 0; }
+.order-form legend { font-family: Georgia, serif; font-size: 1.45rem; margin-bottom: 16px; }
+.order-form .field { margin-bottom: 18px; }
+.order-form input, .order-form select { width: 100%; min-height: 48px; background: var(--paper); color: var(--ink); border: 1px solid var(--control); border-radius: 10px; padding: 12px; }
+.order-form select { margin-block: 8px 18px; }
+.order-form .check-label { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+.order-form input[type=checkbox] { width: 24px; height: 24px; min-height: 24px; flex-shrink: 0; padding: 0; }
+.receipt-preview { margin-block: 16px; max-height: 340px; overflow: auto; border: 1px solid var(--line); padding: 8px; }
+.receipt-preview img { width: 100%; height: auto; max-height: 320px; object-fit: contain; }
+.order-code { overflow-wrap: anywhere; font-family: monospace; font-size: .95rem; }
+.order-confirmation { max-width: 800px; margin-inline: auto; }
+.ticket-numbers { display: flex; flex-wrap: wrap; gap: 10px; padding: 0; list-style: none; }
+.ticket-numbers li { padding: 12px 16px; border: 1px solid var(--accent); border-radius: 10px; color: var(--accent); font-variant-numeric: tabular-nums; }
+.rules-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.order-confirmation .checkout-summary > div:last-child dd { color: inherit; font-size: inherit; }
+.order-confirmation .order-total dd { color: var(--accent); font-size: 1.6rem; }

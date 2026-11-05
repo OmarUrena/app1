@@ -12,6 +12,10 @@ export class ApiError extends Error {
 }
 
 const messages: Record<string, string> = {
+  INVALID_RECEIPT: "No pudimos validar el comprobante. Selecciona una imagen JPG/PNG o un PDF válido.",
+  INVALID_BANK_ACCOUNT: "La cuenta seleccionada ya no admite transferencias. Si ya pagaste, solicita asistencia.",
+  INVALID_TRANSFER_DATE: "Revisa la fecha y hora de la transferencia; no puede estar en el futuro.",
+  RULES_CHANGED: "Las reglas cambiaron. Si ya transferiste, solicita asistencia antes de crear otro cupo.",
   SESSION_INVALID: "No pudimos acceder a tu sesión. No crees otra reserva si ya transferiste; solicita asistencia.",
   RAFFLE_NOT_AVAILABLE: "Esta rifa no admite nuevas pre-reservas en este momento.",
   INVALID_QUANTITY: "La cantidad no cumple los límites de esta rifa. Revisa la cantidad.",

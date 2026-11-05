@@ -45,7 +45,7 @@ export default async function RaffleDetailPage({ params }: Props) {
         <div className="panel-divider" />
         <PurchaseQuantity min={raffle.minPurchase} max={raffle.maxPurchase} disabled={!open} />
         <Alert title={open ? "Explora con tranquilidad" : availabilityLabel(raffle)}>{open ? "Esta vista previa no reserva cupo ni genera una orden. El importe final se confirmará en el servidor cuando se habilite la compra." : raffle.status === "PUBLISHED" ? "El cupo está comprometido. Los boletos reservados todavía no equivalen a ventas confirmadas." : "La participación está deshabilitada en este estado."}</Alert>
-        {raffle.demo ? <Button disabled className="purchase-disabled">{open ? "Compra no habilitada en demo" : availabilityLabel(raffle)}</Button> : <ButtonLink href={`/rifas/${raffle.slug}/participar`}>{open ? "Consultar cupo temporal" : "Revisar mi cupo temporal"}</ButtonLink>}
+        {raffle.demo ? <Button disabled className="purchase-disabled">{open ? "Compra no habilitada en demo" : availabilityLabel(raffle)}</Button> : <ButtonLink href={`/rifas/${raffle.slug}/participar`}>{open ? "Participar" : "Revisar mi cupo temporal"}</ButtonLink>}
         <p className="panel-footnote"><Icon name="shield" />Sin transferencias ni datos personales</p>
         <a href="#reglas" className="rules-link">{raffle.demo ? "Leer reglas de la demostración" : "Leer reglas de participación"}</a>
       </aside>

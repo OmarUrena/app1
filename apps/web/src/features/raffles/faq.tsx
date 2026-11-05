@@ -6,6 +6,7 @@ const questions = [
   ["¿Qué ocurre mientras revisan mi transferencia?", "Una vez creada la orden con comprobante, sus números permanecen reservados hasta una resolución administrativa; no se liberan automáticamente por tiempo."],
   ["¿Puedo comprar en esta demostración?", "Esta vista permite explorar el diseño. No acepta órdenes ni transferencias, no reserva boletos y no ofrece premios reales."],
 ];
-export function FAQ() {
-  return <div className="faq-list">{questions.map(([question, answer]) => <details key={question}><summary>{question}<Icon name="plus" /></summary><p>{answer}</p></details>)}</div>;
+export function FAQ({ demo = false }: { demo?: boolean }) {
+  const visible = demo ? questions : [...questions.slice(0, -1), ["¿Cuándo recibo mis números?", "Después de registrar la orden junto con un comprobante válido. Quedan reservados mientras el pago se verifica manualmente."]];
+  return <div className="faq-list">{visible.map(([question, answer]) => <details key={question}><summary>{question}<Icon name="plus" /></summary><p>{answer}</p></details>)}</div>;
 }

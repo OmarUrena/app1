@@ -22,7 +22,7 @@ export function mapDetail(dto: Schemas["RaffleDetailDto"], inventory: Schemas["A
     images: dto.images.filter(image => publicImage(image.url, imageBase)).map(image => ({ src: image.url, alt: image.alt })),
     minPurchase: dto.minPurchase, maxPurchase: dto.maxPurchase, total: inventory.total, sold: inventory.sold,
     reserved: inventory.reserved, held: inventory.held, available: inventory.available, asOf: inventory.asOf,
-    rules: [dto.rules], highlights: [], numberWidth: dto.numberWidth, startsAt: dto.startsAt, endsAt: dto.endsAt, prize: dto.prize };
+    rules: [dto.rules], rulesVersion: dto.rulesVersion, highlights: [], numberWidth: dto.numberWidth, startsAt: dto.startsAt, endsAt: dto.endsAt, prize: dto.prize };
 }
 export function catalogApi(baseUrl: string, imageBase?: string) {
   const client = createApiClient(baseUrl);

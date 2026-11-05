@@ -15,6 +15,7 @@
     "test:e2e": "playwright test",
     "test:live": "node tests/integration/run-b2-browser.mjs",
     "test:checkout:live": "node tests/integration/run-b3-browser.mjs",
+    "test:orders:live": "node tests/integration/run-b4-browser.mjs",
     "api:generate": "pnpm --filter @sorteos/api-client generate",
     "api:check-catalog": "node scripts/check-catalog-contract.mjs"
   },

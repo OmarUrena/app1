@@ -63,7 +63,7 @@ test('F2 navegador con NestJS y PostgreSQL reales: vacío, paginación, detalle,
       await view.goto('http://127.0.0.1:3105/rifas/'+slug);
       await view.getByRole('heading',{name:'PREMIO TEST F2 12',exact:true}).waitFor();
       assert.equal(await view.getByRole('progressbar').getAttribute('aria-valuenow'),'0');
-      await view.getByRole('link',{name:'Consultar cupo temporal',exact:true}).waitFor();
+      await view.getByRole('link',{name:'Participar',exact:true}).waitFor();
       assert.equal(await view.getByText('Imagen conceptual · DEMO',{exact:true}).count(),0);
       await view.getByText('Cupo consultado:',{exact:false}).waitFor();
       assert.equal(await view.getByText('Disponibles',{exact:true}).locator('..').locator('dd').textContent(),'9');

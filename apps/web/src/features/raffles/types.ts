@@ -27,6 +27,7 @@ export type RaffleView = {
   startsAt?: string | null;
   endsAt?: string | null;
   prize?: string;
+  rulesVersion?: string;
 };
 
 export type RaffleSummary = Pick<RaffleView, "slug" | "title" | "images" | "status" | "ticketPriceMinor" | "total" | "sold" | "available" | "demo" | "featured"> & Partial<Pick<RaffleView, "category" | "subtitle">>;
