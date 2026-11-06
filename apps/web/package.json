@@ -13,9 +13,15 @@
     "test:watch": "vitest",
     "test:core": "node --test tests/core.test.mjs",
     "test:e2e": "playwright test",
-    "api:generate": "pnpm --filter @sorteos/api-client generate"
+    "test:live": "node tests/integration/run-b2-browser.mjs",
+    "test:checkout:live": "node tests/integration/run-b3-browser.mjs",
+    "test:orders:live": "node tests/integration/run-b4-browser.mjs",
+    "test:admin:live": "node tests/integration/run-m4-browser.mjs",
+    "api:generate": "pnpm --filter @sorteos/api-client generate",
+    "api:check-catalog": "node scripts/check-catalog-contract.mjs"
   },
   "dependencies": {
+    "@supabase/supabase-js": "2.118.0",
     "@sorteos/api-client": "workspace:*",
     "next": "^16.0.0",
     "react": "^19.2.0",

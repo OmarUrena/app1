@@ -1,94 +1,86 @@
-# Prompts para Codex — ejecución guiada por fases
+# Prompts para Codex — una sesión y una secuencia integrada
 
-## Primer mensaje (usar una sola vez al iniciar proyecto)
+El orden vigente está en [PLAN_DESARROLLO.md](PLAN_DESARROLLO.md). B/F son referencias técnicas dentro de cada hito M0–M7. Una misma sesión implementa backend y frontend; no hace falta repartirlos entre agentes o worktrees. Estos prompts no autorizan despliegues ni operaciones remotas.
 
-```text
-Vamos a construir App Sorteos, una plataforma propia de rifas de un único organizador en República Dominicana.
+**Política Git permanente:** trabajar exclusivamente en `main` y en la carpeta principal. No crear ramas adicionales ni worktrees. Guardar avances en commits claros sobre `main`; las referencias históricas a ramas describen trabajo anterior.
 
-Lee completamente AGENTS.md, README.md, docs/CONTRATO_API.md, docs/PLAN_BACKEND.md, docs/PLAN_FRONTEND.md y docs/MATRIZ_QA.md. Si los documentos están en otra ruta, localízalos en este repositorio. Esos archivos contienen las reglas de negocio que NO debes reemplazar por suposiciones.
+## Retomar el proyecto
 
-Antes de programar, audita el repositorio y entrégame: (1) estado actual y archivos existentes, (2) propuesta de arquitectura y estructura respetando el código ya existente, (3) dependencias/versiones estables compatibles, (4) riesgos y decisiones abiertas, (5) orden recomendado de fases B0/F0.
+~~~text
+Retoma App Sorteos desde esta carpeta principal y en una sola sesión de trabajo para backend y frontend.
 
-No modifiques código todavía en esta primera tarea salvo que te lo solicite explícitamente. No te conectes a Supabase de producción ni despliegues. Debes mantener la regla fundamental: formulario único de datos+transferencia+comprobante, creación de orden y asignación aleatoria solo al enviarlo, y reserva sin autoexpiración una vez la orden tenga comprobante.
-```
+Lee AGENTS.md, README.md, docs/PLAN_DESARROLLO.md, docs/CONTRATO_API.md, docs/ESTADO_BACKEND.md, docs/ESTADO_FRONTEND.md y docs/MATRIZ_QA.md. Consulta PLAN_BACKEND.md y PLAN_FRONTEND.md como especificaciones técnicas del hito.
 
-## Prompt general de implementación de UNA fase
+Revisa git status, estructura, dependencias, migraciones, tests y cambios locales. Conserva el trabajo existente. Identifica el hito integrado activo y qué partes ya están implementadas, cuáles faltan y qué evidencia es histórica. No reinicies fases anteriores ni avances una capa sin conectar la otra. Presenta el alcance concreto antes de modificar.
 
-```text
-Implementa únicamente la fase [B0/F0/...] descrita en docs/PLAN_BACKEND.md o docs/PLAN_FRONTEND.md. Lee AGENTS.md, docs/CONTRATO_API.md y docs/MATRIZ_QA.md antes de tocar código.
+No crees sesiones, agentes o worktrees por capa. Mantén contrato único, escrituras de negocio por NestJS, formulario único con comprobante obligatorio y reservas de órdenes sin expiración automática. No despliegues ni modifiques servicios remotos sin autorización explícita.
+~~~
 
-1) Revisa el repo y enumera dependencias pendientes.
-2) Presenta el plan corto de archivos/migraciones/endpoints/componentes afectados.
-3) Implementa código funcional, tests, documentación y variables .env.example.
-4) Si cambias un endpoint, sincroniza OpenAPI y el cliente tipado; no inventes API diferente a CONTRATO_API.md.
-5) Ejecuta lint, typecheck, build y tests relevantes; entrega resultados REALES. No marques omitidos como superados.
-6) Cierra con tabla: criterios de aceptación, PASS/FAIL/SKIPPED, evidencia, pendientes y siguiente fase.
+## Implementar o continuar un hito integrado
 
-No implementes fases futuras, no crees datos bancarios reales, no uses endpoints de pago automatizado, no hagas deploy ni cambios destructivos en producción. Si falta servicio externo, usa adaptador local/demo claramente señalado.
-```
+~~~text
+Implementa o continúa únicamente el hito [M0–M7] de docs/PLAN_DESARROLLO.md, incluyendo backend y frontend en esta misma sesión y carpeta.
 
-## Primer sprint práctico — Backend B0
+1) Lee reglas, contrato, estados y QA. Revisa el repositorio y conserva cambios locales.
+2) Define las diferencias pendientes del hito: tablas/migraciones, endpoints/DTO, cliente generado, pantallas, acceso, errores y pruebas conjuntas. Reutiliza lo ya funcional.
+3) Implementa una entrega conectada entre PostgreSQL, NestJS y Next.js. Si cambia la API, sincroniza CONTRATO_API.md, OpenAPI y cliente antes de integrarla en la UI. No aceptes mocks como evidencia de flujo real.
+4) Ejecuta lint de API/cliente y de web, typecheck/build de ambas capas y tests relevantes. Ejecuta integración PostgreSQL y navegador para los flujos afectados; no declares PASS si falta infraestructura o la prueba se omite. Distingue fixtures locales de servicios reales autorizados.
+5) Actualiza docs/PLAN_DESARROLLO.md, los estados de ambas capas, README, changelog, ADR y variables cuando corresponda. Los cambios de datos requieren migración nueva, seed DEMO y recuperación.
+6) Entrega resultados reales con criterios PASS/FAIL/SKIPPED, comandos, entorno, evidencia de integración, limitaciones y siguiente hito.
 
-```text
-Implementa fase B0 de docs/PLAN_BACKEND.md. Necesito backend NestJS con estructura modular, configuración tipada, validación, manejo central de errores, health checks, Swagger/OpenAPI, lint, typecheck, tests, CI y .env.example. Reutiliza código existente si lo hay. No crees todavía órdenes ni lógica simulada de pagos. Documenta cómo arrancar y verificar el servicio.
-```
+No amplíes a otros hitos sin alcance autorizado. No inventes bancos, credenciales, canales de soporte, aprobaciones legales o ganador. No despliegues ni hagas operaciones remotas/destructivas. Si falta una dependencia, avanza el trabajo independiente y registra el bloqueo concreto.
+~~~
 
-## Segundo sprint — Backend B1
+## Siguiente hito propuesto — M5
 
-```text
-Implementa fase B1: esquema PostgreSQL de rifas, tickets, pre-reservas, órdenes, clientes, reportes de pago, cuentas bancarias, admins y auditoría. Revisa las entidades y transiciones en AGENTS.md/CONTRATO_API.md. Crea migraciones versionadas y tests de integridad. Agrega seed DEMO (sin cuentas reales). Verifica que N boletos 0..N-1 existan sin duplicados. No construyas todavía el checkout HTTP.
-```
+M4 está implementado y verificado localmente. Para continuar, solicitar M5 con el prompt general y su alcance en PLAN_DESARROLLO.md: operación B6 + F6 reutilizando la revisión M4 y el CRUD B2. No reconstruir login, MFA o pagos ni implementar sorteo. Las verificaciones pendientes del proyecto remoto requieren un entorno y autorización adecuados; no se asumen concedidos por este prompt.
 
-## Sprint de catálogo — Backend B2 y Frontend F1/F2
+## Referencia de implementación — M4, revisión administrativa integrada
 
-```text
-Implementa B2 y/o F1/F2 según el rol de este agente. Backend: auth real de admin, CRUD de rifas y lectura pública, Swagger y tests. Frontend: páginas de catálogo y detalle responsive que consumen el cliente tipado. Si un endpoint todavía no existe, usa mocks SOLO en desarrollo. El visitante NO elige números. No construir el proceso de compra en este sprint.
-```
+El siguiente prompt conserva el alcance implementado; consultar los estados antes de reutilizarlo para no reiniciar trabajo terminado.
 
-## Sprint crítico — Backend B3
+~~~text
+Implementa M4 de docs/PLAN_DESARROLLO.md en esta misma sesión, trabajando backend y frontend juntos. El backend B5 ya existe; la administración web F5 está pendiente.
 
-```text
-Implementa exactamente B3, motor de holds. Debe reservar aleatoriamente y sin reemplazo q números mediante transacción PostgreSQL con bloqueo coherente por rifa y CSPRNG, devolviendo cantidad/precio/vencimiento SIN revelar números. Expiración automática SOLO para holds; jamás para órdenes con comprobante. Añade pruebas de concurrencia de últimos boletos, idempotencia, abuso y caducidad. Reporta métricas medidas.
-```
+Comprueba primero de forma acotada que catálogo, hold y formulario con comprobante incorporados (M1–M3) siguen conectados en esta carpeta. Reutiliza B5, su OpenAPI y su cliente actual; corrige las diferencias necesarias para el flujo M4 sin reconstruir B0–B5 ni adelantar B6.
 
-## Sprint crítico — Backend B4 + Frontend F4
+Entrega login real de Supabase Auth con sesión SSR protegida, logout, allowlist y MFA TOTP reciente según CONTRATO_API.md. Implementa bandeja filtrada/paginada, detalle, historial/incidencias, visor del proxy privado y acciones de revisión, aprobación, solicitud de resolución y cancelación conciliada. No inventes dashboard agregado o editor completo: corresponden a M5.
 
-```text
-Implementa fase B4 o F4 según el rol. Regla central: una misma acción del comprador envía datos personales + referencia de transferencia + comprobante obligatorio, crea UNA orden y devuelve números aleatorios reservados. No inventar flujo de crear orden y luego subir comprobante. Al terminar mostrar 'Orden y comprobante recibidos — pago pendiente de verificación'. Doble clic/reintentos jamás duplican pedidos. Validar formatos JPG/PNG/PDF y privacidad del almacenamiento. Ejecutar escenarios O01-O14 de MATRIZ_QA.md aplicables.
-```
+Respeta OWNER para aprobar/cancelar, expectedVersion, Idempotency-Key por intención, confirmaciones e importe bancario exacto, conflictos y permisos revocados. NEEDS_RESOLUTION mantiene boletos RESERVED; el archivo no equivale a pago recibido. No liberes boletos por rechazo o antigüedad.
 
-## Revisión — Backend B5 + Frontend F5
+Prueba creación de orden desde web y revisión desde admin, consulta protegida del comprador y disponibilidad después de cada decisión. Incluye MFA/sesión/rol inválidos, descarga privada, dos revisores concurrentes y reintentos sin duplicados. Ejecuta los controles de ambas capas y la matriz QA relevante. Identifica qué pruebas usan fixtures; Auth/Storage reales y aplicación remota de migraciones necesitan entorno y autorización adecuados. No inventes configuración ni declares cerrado M4 sin evidencia conjunta.
 
-```text
-Implementa fase B5 o F5. El administrador autentificado verifica manualmente en el banco, aprueba o solicita resolución. Una orden en revisión/NEEDS_RESOLUTION conserva indefinidamente sus números; rechazo del comprobante NO libera boletos automáticamente. La cancelación exige motivo y conciliación; toda transición queda auditada. Añadir pruebas ante dos admins concurrentes e intentos no autorizados.
-```
+Documenta cambios, comandos/resultados, pendientes y riesgos. No despliegues, no realices transferencias ni modifiques servicios remotos sin autorización explícita.
+~~~
 
-## Revisión obligatoria al final de CADA hito
+## Continuidad de los hitos posteriores
 
-```text
-Compara el estado del repo con AGENTS.md, docs/CONTRATO_API.md, docs/PLAN_BACKEND.md, docs/PLAN_FRONTEND.md y docs/MATRIZ_QA.md. Señala desviaciones de reglas de negocio, deuda técnica, pruebas faltantes y riesgos. Corrige únicamente problemas dentro del hito solicitado, conservando compatibilidad. No marques MVP listo si no hay flujo real e2e en staging con datos demo.
-```
+| Solicitud | Trabajo conjunto |
+|---|---|
+| Continuar M5 | Operación B6 + interfaz F6, reutilizando CRUD B2 y revisión M4 |
+| Continuar M6 | Seguridad/resiliencia B7 + accesibilidad/UX/E2E F7, con métricas y restauración reales |
+| Preparar M7 | Configuración, manuales y plan B8 + F8 revisables; despliegue solo con permiso explícito |
 
-## Cómo trabajar con dos agentes / sesiones de Codex
+Usar el prompt general con el hito autorizado. Si el anterior está incompleto, exponer la dependencia y su alcance antes de ampliarlo; nunca asumir que una capa implementada cierra el hito.
 
-1. Un agente/sesión trabaja backend; otro frontend, cada uno con su rama/worktree propio (ej. `feat/backend-b3`, `feat/frontend-f3`).
-2. Compartir `AGENTS.md` y **un único** `CONTRATO_API.md`; backend es dueño del esquema OpenAPI; frontend consume cliente generado y nunca inventa payloads.
-3. No tocar simultáneamente el mismo archivo. Integrar ramas pequeñas tras CI y pruebas del contrato.
-4. Dependencias: no integrar F3 sin contrato B3 implementado; F4 requiere B4; F5 requiere B5.
-5. Para tareas del mismo repo, primero acordar nombres de endpoints/DTO y versión; luego codificar. No dejar que dos agentes creen estados distintos.
-6. Revisar diff y tests tras cada PR; no autorizar despliegue automáticamente.
+## Revisión al cerrar un hito
 
-## Formato de respuesta final que se exigirá a Codex
+~~~text
+Compara el hito [M0–M7] con AGENTS.md, PLAN_DESARROLLO.md, CONTRATO_API.md, las especificaciones B/F y MATRIZ_QA.md. Revisa reglas de negocio, consistencia del contrato/cliente, acceso, privacidad, datos y experiencia del comprador/admin.
 
-```text
-Fase:
-Resumen:
+Corrige los problemas dentro del alcance autorizado y conserva compatibilidad y cambios existentes. Comprueba evidencia de API, web e integración; distingue resultados históricos, pruebas de esta sesión y verificaciones externas pendientes. No declares el MVP listo sin flujo conjunto probado ni listo para operar sin el ensayo autorizado en staging y los requisitos de M5–M7.
+~~~
+
+## Formato de entrega
+
+~~~text
+Hito integrado y referencias B/F:
+Resumen y comportamiento conectado:
 Archivos modificados:
-Migraciones/contratos:
-Cómo ejecutar:
-Pruebas realizadas y resultados:
-Criterios PASS/FAIL/SKIPPED:
-Advertencias de seguridad y datos:
-Decisiones abiertas (ADR):
-Siguiente fase desbloqueada:
-```
+Migraciones, recuperación y contratos:
+Cómo ejecutar API y web:
+Comandos, resultados y entorno:
+Criterios PASS/FAIL/SKIPPED y evidencia de integración:
+Limitaciones, riesgos y decisiones ADR:
+Pendientes del hito y siguiente hito:
+~~~

@@ -24,12 +24,14 @@ test("navegación por teclado y regreso desde catálogo", async ({ page }) => {
   await page.keyboard.press("Enter");
   await expect(page.getByRole("main")).toBeFocused();
   await page.getByRole("link", { name: "Ver todas" }).click();
+  await page.waitForURL(/\/rifas$/);
   await expect(page).toHaveURL(/\/rifas$/);
   await page.getByRole("link", { name: "Volver al inicio" }).click();
   await expect(page).toHaveURL("/");
 });
 test("admin no expone datos y las rutas inexistentes devuelven 404", async ({ page }) => {
   await page.goto("/admin");
+  await page.waitForURL(/\/admin\/login$/);
   await expect(page).toHaveURL(/\/admin\/login$/);
   await expect(page.getByRole("textbox")).toHaveCount(0);
   const response = await page.goto("/ruta-que-no-existe");

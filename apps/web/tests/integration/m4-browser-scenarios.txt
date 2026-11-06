@@ -1,0 +1,167 @@
+// Test-only UI integration scenarios appended to the B5 fixture by run-m4-browser.mjs.
+const m4Password=randomUUID();
+const m4FreshSubject=randomUUID();
+const m4Refreshes=new Map<string,{subject:string;sessionId:string;aal?:string;mfaAt?:number}>();
+let m4LogoutFailure=false;
+let m4Web:any,m4Log:any;
+async function fixtureUser(subject:string){
+  const factors=(await db.query('SELECT id,status,factor_type FROM auth.mfa_factors WHERE user_id=$1',[subject])).rows;
+  return {id:subject,aud:'authenticated',role:'authenticated',is_anonymous:false,factors,email:'fixture@example.invalid'};
+}
+before(async()=>{
+  await setupFixture();
+  await db.query("INSERT INTO sorteos.admin_users(auth_user_id,role,active) VALUES($1,'ADMIN',true)",[m4FreshSubject]);
+  const fs=require('node:fs'),path=require('node:path');
+  // Separate generated files and lock from any development server the user already has open.
+  const isolated=path.join(m4Workspace,'.tmp','m4-web-'+process.pid),original=path.join(m4Workspace,'apps/web');
+  fs.mkdirSync(isolated,{recursive:true});
+  for(const file of ['package.json','next.config.ts','tsconfig.json','postcss.config.mjs'])fs.copyFileSync(path.join(original,file),path.join(isolated,file));
+  fs.symlinkSync(path.join(original,'node_modules'),path.join(isolated,'node_modules'),process.platform==='win32'?'junction':'dir');
+  for(const directory of ['src','public'])fs.cpSync(path.join(original,directory),path.join(isolated,directory),{recursive:true});
+  m4Log=fs.openSync(path.join(m4Workspace,'.tmp/m4-next.log'),'w');
+  m4Web=require('node:child_process').spawn(process.execPath,[m4WebRequire.resolve('next/dist/bin/next'),'dev','--webpack','--hostname','127.0.0.1','--port','3115'],{
+    cwd:isolated,windowsHide:true,stdio:['ignore',m4Log,m4Log],
+    env:{...process.env,NODE_ENV:'development',APP_ENV:'test',API_MODE:'live',API_BASE_URL:base+'/api/v1',SUPABASE_URL:issuer,SUPABASE_PUBLISHABLE_KEY:'sb_publishable_b5_fixture',WEB_ORIGIN:origin,NEXT_TELEMETRY_DISABLED:'1'}
+  });
+  const deadline=Date.now()+120000;
+  while(Date.now()<deadline){
+    if(m4Web.exitCode!==null)throw new Error('Next terminó al iniciar; revisar .tmp/m4-next.log');
+    try{if((await globalThis.fetch(origin+'/admin/login',{signal:AbortSignal.timeout(5000)})).ok)return;}catch{}
+    await new Promise(r=>setTimeout(r,500));
+  }
+  throw new Error('Next no inició dentro del plazo.');
+});
+after(async()=>{
+  if(m4Web&&m4Web.exitCode===null){m4Web.kill();await Promise.race([new Promise(r=>m4Web.once('exit',r)),new Promise(r=>setTimeout(r,5000))]);}
+  if(m4Log!==undefined)require('node:fs').closeSync(m4Log);
+});
+test('M4: web, API, PostgreSQL, JWT/JWKS y adaptadores locales Auth/Storage', {timeout:480000},async(t)=>{
+  const {chromium,firefox,webkit,expect}=m4Playwright;
+  const AxeBuilder=m4WebRequire('@axe-core/playwright').default;
+  const browser=await chromium.launch(),contexts:any[]=[];
+  const screenshot=require('node:path').join(m4Workspace,'docs/frontend/screenshots/m4');require('node:fs').mkdirSync(screenshot,{recursive:true});
+  const context=await browser.newContext({viewport:{width:1280,height:900}});contexts.push(context);const page=await context.newPage();
+  async function login(view:any,email='owner@example.invalid'){
+    await view.goto(origin+'/admin/login');await view.getByLabel('Correo administrativo').fill(email);await view.getByLabel('Contraseña',{exact:true}).fill(m4Password);
+    await view.getByRole('button',{name:'Iniciar sesión',exact:true}).click();await view.waitForURL('**/admin/mfa');
+    await view.getByLabel('Código de autenticación',{exact:true}).fill('123456');await view.getByRole('button',{name:'Verificar código',exact:true}).click();await view.waitForURL('**/admin/ordenes');
+  }
+  async function visit(c:Fixture,view=page){await view.goto(origin+'/admin/ordenes/'+c.id);await view.getByText(c.orderCode,{exact:true}).filter({visible:true}).waitFor();await view.getByRole('heading',{name:'Decisión administrativa'}).waitFor();}
+  async function prepared(name:string,view=page){await view.getByRole('button',{name,exact:true}).click();return view.getByRole('dialog');}
+  async function confirm(dialog:any){await dialog.getByRole('button',{name:'Revisar decisión',exact:true}).click();await dialog.getByRole('button',{name:'Confirmar decisión',exact:true}).click();await expect(dialog).not.toBeVisible();}
+  async function approvalForm(dialog:any,c:Fixture){
+    await dialog.getByLabel('Importe verificado en RD$').fill(String(c.total/100));await dialog.getByLabel('Fecha y hora del ingreso').fill(new Date(Date.now()-14460000).toISOString().slice(0,16));
+    await dialog.getByLabel('Referencia de confirmación bancaria').fill('REF-VERIFICADA-TEST-'+c.id);await dialog.getByLabel('Nota de verificación').fill('Ingreso confirmado manualmente en extracto de prueba.');
+    await dialog.getByLabel('Confirmo que verifiqué').check();await dialog.getByLabel('Revisé las posibles').check();
+  }
+  try{
+    await t.test('anónimos, CSRF, login incorrecto, allowlist y MFA obligatorio',async()=>{
+      await page.goto(origin+'/admin/ordenes');await expect(page).toHaveURL(/\/admin\/login$/);
+      const noSession=await context.request.get(origin+'/admin/api/orders');assert.equal(noSession.status(),401);
+      const csrf=await context.request.post(origin+'/admin/auth/login',{headers:{Origin:'https://untrusted.invalid'},data:{email:'owner@example.invalid',password:m4Password}});assert.equal(csrf.status(),403);
+      await page.getByLabel('Correo administrativo').fill('owner@example.invalid');await page.getByLabel('Contraseña',{exact:true}).fill('incorrecta');await page.getByRole('button',{name:'Iniciar sesión',exact:true}).click();await page.getByRole('alert').filter({hasText:'No pudimos iniciar sesión'}).waitFor();
+      const outsiderResponse=await context.request.post(origin+'/admin/auth/login',{headers:{Origin:origin},data:{email:'outsider@example.invalid',password:m4Password}});assert.equal(outsiderResponse.status(),403);
+      await page.getByLabel('Correo administrativo').fill('owner@example.invalid');await page.getByLabel('Contraseña',{exact:true}).fill(m4Password);await page.getByRole('button',{name:'Iniciar sesión',exact:true}).click();await page.waitForURL('**/admin/mfa');
+      assert.equal((await context.request.get(origin+'/admin/api/orders')).status(),403);
+      await page.getByLabel('Código de autenticación').fill('000000');await page.getByRole('button',{name:'Verificar código',exact:true}).click();await page.getByRole('alert').filter({hasText:'código no es válido'}).waitFor();
+      await page.getByLabel('Código de autenticación').fill('123456');await page.getByRole('button',{name:'Verificar código',exact:true}).click();await page.waitForURL('**/admin/ordenes');
+      const cookies=(await context.cookies()).filter((c:any)=>c.name.startsWith('sorteos_admin_'));assert.ok(cookies.length>=2);assert.ok(cookies.every((c:any)=>c.httpOnly&&c.sameSite==='Strict'&&c.path==='/admin'));
+      assert.equal(await page.evaluate(()=>localStorage.length),0);
+    });
+    let bought:Fixture;
+    await t.test('M1–M3: catálogo, hold sin números y orden con archivo desde navegador',async()=>{
+      const setup=await order(1),buyer=await browser.newContext({viewport:{width:390,height:844}});contexts.push(buyer);const view=await buyer.newPage();
+      const catalog=await buyer.newPage();await catalog.goto(origin+'/rifas/demo-'+setup.raffle);await catalog.getByRole('heading',{name:'RIFA DEMO B5',exact:true}).waitFor();await catalog.close();
+      await view.goto(origin+'/rifas/demo-'+setup.raffle+'/participar');await view.getByRole('button',{name:'Consultar y reservar cupo temporal'}).click();await view.getByText('Cupo reservado temporalmente',{exact:true}).waitFor();
+      assert.equal(await view.getByRole('list',{name:'Números asignados a la orden'}).count(),0);
+      await view.getByLabel('Nombre completo',{exact:true}).fill('CLIENTE TEST M4');await view.getByLabel('Teléfono con código de país').fill('+1 (809) 555-0100');await view.getByLabel('Correo electrónico',{exact:true}).fill('m4-test@example.invalid');
+      await view.getByLabel('Cuenta a la que transferiste').selectOption(bankId);await view.getByLabel('Referencia bancaria',{exact:true}).fill('REFERENCIA TEST M4 SIN TRANSFERENCIA');await view.getByLabel('Fecha y hora de la transferencia',{exact:true}).fill(new Date(Date.now()-14460000).toISOString().slice(0,16));await view.getByRole('checkbox').check();
+      await expect(view.getByRole('button',{name:'Enviar orden y comprobante'})).toBeDisabled();await view.getByLabel('Imagen JPG/PNG o PDF',{exact:true}).setInputFiles({name:'test.png',mimeType:'image/png',buffer:png});
+      await view.getByRole('button',{name:'Enviar orden y comprobante'}).click();await view.waitForURL('**/orden/confirmacion');await view.getByRole('heading',{name:'Orden y comprobante recibidos.',exact:true}).waitFor();
+      const row=(await db.query("SELECT o.id,o.order_code FROM sorteos.orders o JOIN sorteos.customers c ON c.id=o.customer_id WHERE c.email='m4-test@example.invalid'")).rows[0];
+      bought={...setup,id:row.id,orderCode:row.order_code,total:10025};
+      const numbers=await view.getByRole('list',{name:'Números asignados a la orden'}).getByRole('listitem').allTextContents();assert.equal(numbers.length,1);
+      await visit(bought);assert.equal(await page.getByText('m4-test@example.invalid',{exact:true}).count(),1);
+      await page.getByRole('button',{name:'Abrir comprobante',exact:true}).click();await page.getByRole('img',{name:'Comprobante bancario adjunto a esta orden'}).waitFor();
+      const receipt=await context.request.get(origin+'/admin/api/payment-reports/'+(await db.query('SELECT id FROM sorteos.payment_reports WHERE order_id=$1',[row.id])).rows[0].id+'/receipt');assert.equal(receipt.status(),200);assert.match(receipt.headers()['cache-control'],/no-store/);
+      await page.screenshot({path:screenshot+'/detalle-desktop.png',fullPage:true});
+      const dialog=await prepared('Aprobar pago');await approvalForm(dialog,bought);await confirm(dialog);await page.getByText('Boletos vendidos tras verificación bancaria.',{exact:true}).waitFor();
+      await view.reload();await view.getByText('Pago confirmado',{exact:false}).first().waitFor();assert.deepEqual(await view.getByRole('list',{name:'Números asignados a la orden'}).getByRole('listitem').allTextContents(),numbers);
+      const availability=await (await fetch(base+'/api/v1/raffles/demo-'+setup.raffle+'/availability')).json() as any;assert.equal(availability.sold,1);assert.equal(availability.reserved,1);
+    });
+    await t.test('resolución conserva reserva; cancelación conciliada libera exactamente q',async()=>{
+      const c=await order(2);await visit(c);let dialog=await prepared('Requiere resolución');await dialog.getByLabel('Motivo de resolución').fill('Comprobante requiere una conciliación adicional documentada.');await confirm(dialog);await page.getByText('Los números permanecen reservados sin vencimiento automático.',{exact:true}).waitFor();assert.deepEqual(await counts(c),{available:8,reserved:2,sold:0});
+      dialog=await prepared('Resolver y cancelar');await dialog.getByLabel('Motivo de cancelación').fill('Ausencia de ingreso confirmada en extracto de pruebas.');await dialog.getByLabel('Referencia de evidencia').fill('INC-TEST-M4');await dialog.getByLabel('Confirmo que documenté').check();await confirm(dialog);await page.getByText('La asignación se conserva como historial.',{exact:false}).waitFor();assert.deepEqual(await counts(c),{available:10,reserved:0,sold:0});
+    });
+    await t.test('versión obsoleta impide sobrescritura y exige actualizar detalle',async()=>{
+      const c=await order();await visit(c);const dialog=await prepared('Aprobar pago');await approvalForm(dialog,c);
+      assert.equal((await action(c,'start-review',{})).status,200);await dialog.getByRole('button',{name:'Revisar decisión',exact:true}).click();await dialog.getByRole('button',{name:'Confirmar decisión',exact:true}).click();await dialog.getByText('Otro administrador modificó la orden.',{exact:false}).waitFor();await expect(dialog.getByRole('button',{name:'Reintentar misma decisión'})).toBeDisabled();
+      await dialog.getByRole('button',{name:'Actualizar detalle antes de decidir'}).click();await expect(dialog).not.toBeVisible();await page.getByText(c.orderCode,{exact:true}).filter({visible:true}).waitFor();assert.deepEqual(await counts(c),{available:7,reserved:3,sold:0});
+    });
+    await t.test('respuesta perdida conserva clave y payload, sin aprobación duplicada',async()=>{
+      const c=await order();await visit(c);const dialog=await prepared('Aprobar pago');await approvalForm(dialog,c);let requests:any[]=[];
+      await page.route('**/admin/api/orders/'+c.id+'/approve',async(route:any)=>{requests.push({key:route.request().headers()['idempotency-key'],body:route.request().postData()});await route.fetch();await route.abort('failed');});
+      await dialog.getByRole('button',{name:'Revisar decisión',exact:true}).click();await dialog.getByRole('button',{name:'Confirmar decisión',exact:true}).click();await dialog.getByRole('button',{name:'Reintentar misma decisión'}).waitFor();await page.unroute('**/admin/api/orders/'+c.id+'/approve');
+      page.on('request',(req:any)=>{if(req.url().endsWith('/'+c.id+'/approve'))requests.push({key:req.headers()['idempotency-key'],body:req.postData()});});
+      await dialog.getByRole('button',{name:'Reintentar misma decisión'}).click();await expect(dialog).not.toBeVisible();assert.equal(requests.length,2);assert.deepEqual(requests[0],requests[1]);assert.equal((await db.query('SELECT count(*)::int AS n FROM sorteos.admin_actions WHERE order_id=$1',[c.id])).rows[0].n,1);
+    });
+    await t.test('bandeja filtra por estado y comunica intervalos de fechas inválidos',async()=>{
+      await page.goto(origin+'/admin/ordenes');await page.getByRole('heading',{name:'Filtrar órdenes',exact:true}).waitFor();await page.getByLabel('Estado',{exact:true}).selectOption('CANCELLED');
+      const filtered=page.waitForResponse((res:any)=>res.url().includes('/admin/api/orders?')&&res.url().includes('status=CANCELLED')&&res.status()===200);await page.getByRole('button',{name:'Aplicar filtros',exact:true}).click();
+      const body=await (await filtered).json();assert.ok(body.items.length>=1);assert.ok(body.items.every((item:any)=>item.status==='CANCELLED'));assert.ok(!JSON.stringify(body).includes('example.invalid'));
+      await page.getByLabel('Creada desde',{exact:true}).fill('2026-11-06');await page.getByLabel('Creada hasta',{exact:true}).fill('2026-11-01');await page.getByRole('button',{name:'Aplicar filtros',exact:true}).click();await page.getByRole('alert').filter({hasText:'El inicio debe ser anterior al final del intervalo.'}).waitFor();
+    });
+    await t.test('ADMIN revisa, sin botones ni permiso para aprobar/cancelar; móvil accesible',async()=>{
+      const staff=await browser.newContext({viewport:{width:360,height:800}});contexts.push(staff);const view=await staff.newPage();await login(view,'staff@example.invalid');const c=await order();await visit(c,view);
+      await expect(view.getByRole('button',{name:'Aprobar pago',exact:true})).toHaveCount(0);await expect(view.getByRole('button',{name:'Resolver y cancelar',exact:true})).toHaveCount(0);
+      const forbidden=await staff.request.post(origin+'/admin/api/orders/'+c.id+'/approve',{headers:{Origin:origin,'Idempotency-Key':randomUUID()},data:{expectedVersion:1,...approval(c)}});assert.equal(forbidden.status(),403);
+      // Authorization failures clear local credentials; sign in again for visual verification.
+      await login(view,'staff@example.invalid');await visit(c,view);assert.equal(await view.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+      const a11y=await new AxeBuilder({page:view}).withTags(['wcag2a','wcag2aa','wcag21aa']).analyze();assert.deepEqual(a11y.violations,[]);
+      await view.screenshot({path:screenshot+'/detalle-mobile.png',fullPage:true});
+    });
+    await t.test('MFA vencido y sesión/factor/allowlist revocados bloquean web y archivos',async()=>{
+      for(const mode of ['mfa','session','factor','allowlist']){
+        const isolated=await browser.newContext();contexts.push(isolated);const view=await isolated.newPage();await login(view);const all=await isolated.cookies();const access=all.filter((c:any)=>c.name.startsWith('sorteos_admin_access_')).sort((a:any,b:any)=>a.name.localeCompare(b.name)).map((c:any)=>c.value).join('');const payload=JSON.parse(Buffer.from(access.split('.')[1],'base64url').toString());
+        if(mode==='mfa'){const stale=await token(ownerSubject,{sessionId:payload.session_id,mfaAt:Math.floor(Date.now()/1000)-901});await isolated.addCookies([0,1,2].map(i=>({name:'sorteos_admin_access_'+i,value:stale.slice(i*3000,(i+1)*3000),domain:'127.0.0.1',path:'/admin',httpOnly:true,sameSite:'Strict'})));}
+        if(mode==='session')await db.query('DELETE FROM auth.sessions WHERE id=$1',[payload.session_id]);
+        if(mode==='factor')await db.query("UPDATE auth.mfa_factors SET status='unverified' WHERE id=(SELECT factor_id FROM auth.sessions WHERE id=$1)",[payload.session_id]);
+        if(mode==='allowlist')await db.query('UPDATE sorteos.admin_users SET active=false WHERE id=$1',[ownerId]);
+        const denied=await isolated.request.get(origin+'/admin/api/orders');assert.ok([401,403].includes(denied.status()));
+        if(mode==='allowlist')await db.query('UPDATE sorteos.admin_users SET active=true WHERE id=$1',[ownerId]);
+      }
+    });
+    await t.test('token vencido renueva cookies en Route Handler sin perder la sesión ni MFA reciente',async()=>{
+      const renewed=await browser.newContext();contexts.push(renewed);const view=await renewed.newPage();await login(view);
+      const access=(await renewed.cookies()).filter((c:any)=>c.name.startsWith('sorteos_admin_access_')).sort((a:any,b:any)=>a.name.localeCompare(b.name)).map((c:any)=>c.value).join('');
+      const payload=JSON.parse(Buffer.from(access.split('.')[1],'base64url').toString());
+      const expired=await new SignJWT({...payload,exp:Math.floor(Date.now()/1000)-30}).setProtectedHeader({alg:'ES256',kid:'primary'}).sign(keys.privateKey);
+      await renewed.addCookies([0,1,2].map(i=>({name:'sorteos_admin_access_'+i,value:expired.slice(i*3000,(i+1)*3000),domain:'127.0.0.1',path:'/admin',httpOnly:true,sameSite:'Strict'})));
+      await view.goto(origin+'/admin/ordenes');await view.waitForURL('**/admin/login');await view.getByRole('button',{name:'Continuar sesión existente',exact:true}).click();await view.waitForURL('**/admin/ordenes');
+      assert.equal((await renewed.request.get(origin+'/admin/api/session')).status(),200);
+    });
+    await t.test('administrador sin factor inscribe TOTP y lo verifica sin exponer tokens',async()=>{
+      const fresh=await browser.newContext();contexts.push(fresh);const view=await fresh.newPage();
+      await view.goto(origin+'/admin/login');await view.getByLabel('Correo administrativo').fill('new@example.invalid');await view.getByLabel('Contraseña',{exact:true}).fill(m4Password);await view.getByRole('button',{name:'Iniciar sesión',exact:true}).click();await view.waitForURL('**/admin/mfa');
+      await view.getByRole('button',{name:'Configurar autenticador',exact:true}).click();await expect(view.locator('.admin-secret')).toHaveText('JBSWY3DPEHPK3PXP');
+      await view.getByLabel('Código de autenticación').fill('123456');await view.getByRole('button',{name:'Verificar código',exact:true}).click();await view.waitForURL('**/admin/ordenes');
+      await expect(view.locator('.admin-secret')).toHaveCount(0);assert.equal((await fresh.request.get(origin+'/admin/api/session')).status(),200);
+    });
+    await t.test('cierre revoca sesión y no permite reabrir un comprobante',async()=>{
+      await login(page);await page.getByRole('button',{name:'Cerrar sesión',exact:true}).click();await page.waitForURL('**/admin/login');assert.equal((await context.request.get(origin+'/admin/api/orders')).status(),401);
+      assert.equal((await context.cookies()).filter((c:any)=>c.name.startsWith('sorteos_admin_')&&!c.name.endsWith('signed_out')).length,0);
+    });
+    await t.test('fallo del proveedor al cerrar elimina cookies y explica la revocación pendiente',async()=>{
+      const isolated=await browser.newContext();contexts.push(isolated);const view=await isolated.newPage();await login(view);const previous=(await isolated.cookies()).filter((c:any)=>c.name.startsWith('sorteos_admin_')&&!c.name.endsWith('signed_out'));m4LogoutFailure=true;
+      try{await view.getByRole('button',{name:'Cerrar sesión',exact:true}).click();await view.waitForURL('**/admin/login?cierre=pendiente');await view.getByText('Revocación remota pendiente',{exact:true}).waitFor();assert.equal((await isolated.cookies()).filter((c:any)=>c.name.startsWith('sorteos_admin_')&&!c.name.endsWith('signed_out')).length,0);
+        // Simulate a refresh response that was already in flight before logout.
+        await isolated.addCookies(previous);assert.equal((await isolated.request.get(origin+'/admin/api/orders')).status(),401);
+      }finally{m4LogoutFailure=false;}
+    });
+    await t.test('login y revisión se ejecutan también en Firefox y WebKit móvil',async()=>{
+      for(const [engine,label]of [[firefox,'firefox'],[webkit,'webkit-mobile']]){
+        const actual=await engine.launch();try{const view=await actual.newPage({viewport:{width:390,height:844}});await login(view);await visit(await order(),view);assert.equal(await view.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await view.screenshot({path:screenshot+'/detalle-'+label+'.png',fullPage:true});}finally{await actual.close();}
+      }
+    });
+  }finally{for(const c of contexts)await c.close();await browser.close();}
+});

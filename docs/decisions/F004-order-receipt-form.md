@@ -1,0 +1,22 @@
+# ADR F004 — Orden y comprobante en un único envío
+
+Fecha: 2026-11-05. Estado: aceptada.
+
+## Decisiones
+
+1. El formulario F4 vive junto al cupo confirmado en `/rifas/[slug]/participar`. Recoge nombre, teléfono, **correo obligatorio**, cuenta publicada, referencia, fecha de transferencia en Santo Domingo, aceptación de reglas y un archivo JPG/PNG/PDF obligatorio. No crea una orden antes del archivo. Todos los datos y bytes viajan en un único POST multipart al NestJS B4, mediante el helper tipado compartido que genera correctamente el boundary.
+2. La UI muestra el dinero congelado de B3 y solo envía los campos permitidos por B4, sin total, precio ni números. El backend es autoridad para sesión, reglas, fechas, cuenta, disponibilidad y validación de archivo. La UI comprueba formato/tamaño y fecha contra hora servidor para evitar errores de captura, sin fingir una validación completa del comprobante.
+3. Vista previa de imagen con `blob:` local y revocación al quitar/cambiar/unmontar. No se incrusta un PDF, no se sube a servicios de vista previa y no se guarda el archivo en almacenamiento del navegador. El límite público de UI es `RECEIPT_MAX_BYTES`, con 5 MiB por defecto y techo 10 MiB; debe coincidir con la API.
+4. Un intento tiene UUID estable y huella SHA-256 de los campos canónicos, tipo MIME y bytes originales. Solo se persisten localizadores, versión pública de reglas y huella en `sessionStorage`, nunca nombre, teléfono, correo, referencia, fecha o archivo. El secreto sigue siendo la cookie HttpOnly de B3. Al recargar un resultado ambiguo el comprador debe reintroducir exactamente los datos y seleccionar el mismo archivo; una huella distinta bloquea el POST.
+5. Tras una respuesta ambigua se bloquean cambios/liberación de cupo y se conservan payload/clave. Un rechazo conocido del primer intento por datos/archivo admite corregirlos; un reintento que ya era incierto no se convierte en una intención nueva. No hay reintentos automáticos. El timeout de envío es 120 segundos; no se inventan porcentajes de upload ni un pago aprobado.
+6. Números y confirmación solo se muestran con el OrderDto íntegro de un POST 201, o mediante consulta GET 200 de la sesión propietaria. Se verifica cantidad, unicidad y formato; pago permanece PENDING_REVIEW/REPORTED hasta decisión administrativa. El vencimiento bloquea nuevos envíos; un intento ambiguo puede recuperar una orden ya registrada aunque el hold esté CONSUMED o la rifa PAUSED.
+7. `/orden/recuperar` consulta la intención de esta pestaña sin crear otra sesión/hold. Conserva el contexto público de reglas para continuar cuando la ficha ya no es pública. B4 sigue revalidando versión y propiedad; los metadatos locales no autorizan ni garantizan el éxito.
+8. `/orden/confirmacion` utiliza un localizador en cookie web HttpOnly, Secure en producción, SameSite=Strict, sin código en query ni localStorage. El pequeño setter web comprueba origen y solo guarda el código público, no escribe negocio. Ese código no autoriza acceso: la consulta la hace el navegador a NestJS con su cookie invitada. No se reenvían claves privilegiadas ni se mezclan sesiones web/API de otros usuarios. `WEB_ORIGIN` permite fijar el origen externo exacto cuando el proxy reescribe Host.
+9. Si falla guardar el localizador después del 201, la orden permanece visible en memoria y se ofrece continuar a su consulta; no se reenvía la compra. La confirmación actualizada oculta el resultado anterior mientras consulta, y una sesión ausente/ajena no muestra números. El foco pasa al título al cargar el resultado protegido.
+10. Se retira el aviso general de compra inhabilitada solo en live. Demo sigue sin escrituras, cupos ficticios ni éxito inventado. No se habilita revisión administrativa F5, despliegue ni datos bancarios reales como parte de F4.
+
+## Integración y límites
+
+El backend confirmado en `60736fb` se integra en la rama frontend para que OpenAPI y cliente puedan regenerarse desde el mismo árbol. Los servicios B5 existentes se conservan como dependencia del commit sin añadir UI administrativa. Se respetan sus migraciones; no se crea una migración frontend ni se ejecuta en remoto.
+
+Perder cookie o almacenamiento no borra una orden; puede impedir recuperarla sin asistencia verificada. No se inventa OTP, envío de correo ni contacto. El aviso de privacidad describe el tratamiento implementado; identidad operativa, canales, políticas y requisitos de publicación deben completarse por el organizador antes de operar. Pruebas y alcance remoto en `docs/frontend/ESTADO_F4.md`.

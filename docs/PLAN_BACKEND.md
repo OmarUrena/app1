@@ -1,5 +1,7 @@
 # Plan de acción Backend — App Sorteos (NestJS + PostgreSQL/Supabase)
 
+**Uso vigente (2026-11-05):** especificación técnica del backend dentro de [PLAN_DESARROLLO.md](PLAN_DESARROLLO.md), la única secuencia de ejecución M0–M7. Implementar cada hito junto a su frontend en la misma sesión. B0–B8 conservan su identidad para referencias, migraciones y evidencias; no son una agenda separada. Para rutas y payloads ya implementados prevalece [CONTRATO_API.md](CONTRATO_API.md).
+
 **Objetivo:** construir primero el núcleo confiable de inventario, órdenes con comprobante, conciliación de transferencias y control administrativo. **No implementar el sorteo/selección de ganadores sin especificación aprobada.**
 
 ## 0. Contexto obligatorio
@@ -23,7 +25,7 @@
 
 **Instrucciones a Codex**
 1. Inspeccionar estado del repositorio, dependencias, convenciones, ramas, migraciones y archivos preexistentes. Mostrar plan de cambios antes de modificar.
-2. Si es proyecto nuevo, preparar monorepo pnpm con `apps/api`, `apps/web`, `packages/api-client`, `infra`, `docs` (no levantar frontend funcional en esta fase backend salvo shell si es imprescindible). Si existe estructura, respetarla.
+2. Si es proyecto nuevo, preparar monorepo pnpm con `apps/api`, `apps/web`, `packages/api-client`, `infra`, `docs`, junto al armazón F0 dentro de M0. Si existe estructura, respetarla.
 3. Crear app NestJS con TypeScript `strict`, prefijo `/api/v1`, validación central, manejo de errores, configuración tipada y logging estructurado.
 4. Endpoint `GET /api/v1/health` con información no sensible; `GET /api/v1/health/ready` comprueba DB cuando esté configurada.
 5. Agregar OpenAPI/Swagger para desarrollo (no exposición insegura en producción), CORS allowlist, Helmet/security headers, `.env.example`, scripts e instrucciones de uso.
@@ -167,14 +169,17 @@
 
 **Bloqueo de lanzamiento:** no activar ventas reales ni anunciar rifas sin verificar permisos aplicables, reglas y términos públicos, privacidad, obligaciones fiscales, requisitos de la entidad bancaria y seguridad.
 
-## Contrato entre fases
-- B0 habilita F0.
-- B1+B2 habilitan F2 (catálogo).
-- B3 habilita F3 (selector + cuenta atrás).
-- B4 habilita F4 (formulario final + comprobante + números).
-- B5 habilita F5 (admin, conciliación).
-- B6 habilita F6 (reportes, cierre, consultas).
-- B7+B8 se realizan coordinadas con F7+F8.
+## Integración en la secuencia única
+- M0: B0 + F0, fundamentos compartidos.
+- M1: B1 + B2 + F1 + F2, catálogo conectado.
+- M2: B3 + F3, cantidad y pre-reserva sin números.
+- M3: B4 + F4, orden y comprobante en una acción.
+- M4: B5 + F5, revisión manual y conciliación desde la web.
+- M5: B6 + F6, operación diaria y editor que reutiliza B2.
+- M6: B7 + F7, robustez conjunta.
+- M7: B8 + F8, staging y salida controlada.
+
+Estas dependencias ordenan las tareas dentro de cada hito; no requieren sesiones separadas. B5 ya implementado se reutiliza al completar M4. La siguiente entrega conjunta y sus condiciones se mantienen en [PLAN_DESARROLLO.md](PLAN_DESARROLLO.md).
 
 ## Entrega obligatoria de cada tarea a Codex
 **1.** Qué se implementó. **2.** Migraciones y pruebas. **3.** Endpoints + ejemplos OpenAPI. **4.** Cómo arrancar/demo. **5.** Riesgos y supuestos. **6.** Qué fase desbloqueó. **7.** Qué falta y por qué. No declarar éxito sin pruebas ejecutadas.

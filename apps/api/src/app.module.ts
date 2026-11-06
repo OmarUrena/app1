@@ -15,6 +15,7 @@ import { APP_CONFIG, AppConfig } from './config/config';
 import { DatabaseService } from './database/database.service';
 import { HealthController } from './health/health.controller';
 import { AdminGuard } from './auth/admin.guard';
+import { AdminSessionController } from './auth/admin-session.controller';
 import { CatalogService } from './catalog/catalog.service';
 import { MediaService } from './catalog/media.service';
 import { AdminRafflesController, PublicBankAccountsController, PublicRafflesController } from './catalog/catalog.controller';
@@ -26,7 +27,7 @@ export class AppModule {
       module: AppModule,
       imports: [ThrottlerModule.forRoot([{ ttl: config.rateTtlMs, limit: config.rateLimit }]),
         MulterModule.register({limits:{fileSize:config.receiptMaxBytes,files:1,fields:9,parts:10,fieldNameSize:64,fieldSize:512}})],
-      controllers: [HealthController,PublicRafflesController,PublicBankAccountsController,AdminRafflesController,CheckoutController,OrdersController,PaymentsController],
+      controllers: [HealthController,PublicRafflesController,PublicBankAccountsController,AdminRafflesController,CheckoutController,OrdersController,PaymentsController,AdminSessionController],
       providers: [
         { provide: APP_CONFIG, useValue: config }, DatabaseService,AdminGuard,CatalogService,MediaService,CheckoutService,
         OrdersService,ReceiptService,PrivateStorageService,OrderUploadGuard,UploadCapacityInterceptor,

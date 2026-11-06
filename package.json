@@ -24,10 +24,12 @@
     "test:checkout": "npm run test:checkout --workspace @sorteos/api",
     "test:orders": "npm run test:orders --workspace @sorteos/api",
     "test:payments": "npm run test:payments --workspace @sorteos/api",
+    "test:m4": "npm run test:admin:live --workspace @sorteos/web",
     "db:migrate:local": "npm run db:migrate:local --workspace @sorteos/api",
     "db:seed:demo": "npm run db:seed:demo --workspace @sorteos/api",
     "admin:provision:local": "npm run admin:provision:local --workspace @sorteos/api",
-    "generate:api": "npm run openapi --workspace @sorteos/api && npm run generate --workspace @sorteos/api-client"
+    "generate:api": "npm run openapi --workspace @sorteos/api && npm run generate --workspace @sorteos/api-client",
+    "dev:web": "powershell -NoProfile -File scripts/start-web.ps1"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.3",

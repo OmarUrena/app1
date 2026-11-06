@@ -2,7 +2,7 @@
 
 Implementación en `infra/supabase/migrations/20261102010448_domain_b1.sql`.
 Migración, seed, constraints, RLS y recuperación comprobados en PostgreSQL 17.5
-aislado: 20 pruebas de integración aprobadas; evidencia en `ESTADO_B1.md`.
+aislado: 20 pruebas de integración aprobadas; evidencia en [estado backend B1](ESTADO_BACKEND.md#b1).
 
 ```mermaid
 erDiagram

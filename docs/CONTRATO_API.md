@@ -290,7 +290,8 @@ CONFLICT. Validación estructural y campos desconocidos: 400 INVALID_REQUEST.
 | POST | `/admin/raffles/:id/close` | bloquear nuevas ventas y auditar; sorteo no disponible si pendientes |
 | GET | `/admin/orders` | paginado, filtros status/fecha/rifa, acceso mínimo |
 | GET | `/admin/orders/:id` | detalle privado y auditoría |
-| GET | `/admin/payment-reports/:id/receipt-url` | URL firmada corta o proxy protegido |
+| GET | `/admin/payment-reports/:id/receipt-url` | B5: descriptor del proxy autenticado |
+| GET | `/admin/payment-reports/:id/receipt` | B5: bytes privados, Bearer MFA, sin caché |
 | POST | `/admin/orders/:id/start-review` | `PENDING_REVIEW -> UNDER_REVIEW` |
 | POST | `/admin/orders/:id/approve` | requiere importe+referencia verificados; `RESERVED->SOLD` atómico |
 | POST | `/admin/orders/:id/request-resolution` | motivo; mantiene RESERVED |
@@ -298,26 +299,94 @@ CONFLICT. Validación estructural y campos desconocidos: 400 INVALID_REQUEST.
 | GET | `/admin/dashboard` | cifras agregadas coherentes |
 | GET | `/admin/reports/orders.csv` | export auditable, acceso admin |
 
-**Ejemplo de aprobación:**
+### Sesión administrativa web — M4
+
+`GET /api/v1/admin/session` requiere Bearer, usuario Auth válido, allowlist activa y sesión Auth existente/no vencida. Devuelve `200 {adminId,role:'OWNER'|'ADMIN',mfaRequired,mfaVerifiedUntil:string|null}` con `Cache-Control: no-store`. Sin MFA reciente puede devolver metadatos mínimos para configurar/verificar TOTP; esto no concede acceso a órdenes o comprobantes. Con MFA reciente vuelve a comprobar la sesión/factor mediante la autorización financiera B5. Sesión revocada: 401 SESSION_REVOKED; no autorizado: 403; Auth/metadatos no disponibles: 503. No devuelve JWT, refresh token, email ni otra PII. OpenAPI 0.5.1.
+
+La web usa cookies HttpOnly de alcance `/admin` y rutas same-origin propias: POST `/admin/auth/login`, `factors`, `enroll`, `verify`, `refresh`, `logout`; GET `/admin/api/orders`, `/admin/api/orders/:id`, `/admin/api/payment-reports/:id/receipt`, `/admin/api/session`; POST de las cuatro acciones B5 bajo `/admin/api/orders/:id/*`. Son adaptadores de sesión/cliente tipado en Next.js, no nuevos endpoints de negocio ni acceso directo a tablas. Todas las mutaciones comprueban Origin exacto. No hay registro público, consulta por email o salto de MFA. Ver [ADR 0012](decisions/0012-m4-admin-web-session.md).
+
+Logout borra las credenciales web y solicita revocación de la sesión Auth actual. Una marca HttpOnly independiente de cierre bloquea cookies que reaparezcan por renovaciones pendientes; solo un login nuevo la elimina. Las lecturas sin renovación no reescriben tokens. Si el proveedor no confirma revocación, la web informa cierre local con revocación remota pendiente; no considera un JWT expirado como prueba de revocación del refresh token.
+
+### Reglas financieras B5 mantenidas en M4
+
+Las ocho operaciones B5 (bandeja, detalle, descriptor, descarga y cuatro
+acciones) requieren Bearer de Supabase, allowlist activa, `aal2` y TOTP
+verificado en los últimos 15 minutos. Se comprueba también sesión y factor
+vigentes en Auth, incluyendo antes de entregar un archivo descargado.
+OWNER aprueba/cancela; OWNER y ADMIN pueden ejecutar las demás operaciones.
+No se aprueba por OCR o por recibir una imagen.
+
+`GET /admin/orders` admite page/pageSize (máximo 100), status, raffleId,
+from/to (ISO con zona, límites inclusivos de creación). Devuelve
+`{items,pagination:{page,pageSize,total}}`, sin datos personales en la lista.
+Los elementos contienen id, orderCode, raffleId, raffleTitle, status,
+paymentReportStatus, quantity, totalMinor, version, createdAt,
+duplicateReferenceCount y duplicateReceiptCount.
+
+El detalle añade customer (name, phone, email; históricos pueden tener null),
+ticketNumbers con ceros, paymentReport sin ruta/hash de Storage, las últimas
+100 acciones y 100 incidencias. Cada acceso sensible se audita.
+`receipt-url` devuelve `{url:'/api/v1/admin/payment-reports/<id>/receipt',
+access:'AUTHENTICATED_PROXY'}`. La ruta requiere Authorization en cada GET;
+no es un enlace público ni una URL firmada. La descarga responde JPG/PNG/PDF,
+`Cache-Control: no-store`, `nosniff` y nombre genérico de adjunto.
+
+Las cuatro acciones reciben `Idempotency-Key` UUID y `expectedVersion` del
+detalle vigente. La clave se conserva en reintentos del mismo payload, con
+alcance por administrador; reutilizarla con otro contenido da 409
+IDEMPOTENCY_CONFLICT. Versión obsoleta: 409 CONCURRENT_MODIFICATION.
+`start-review` recibe solo `{expectedVersion}` y admite PENDING_REVIEW o
+NEEDS_RESOLUTION. `request-resolution` añade reason (10–2000 caracteres) y
+reportStatus (`DISPUTED` o `INVALID`); mantiene todos los boletos RESERVED.
+
+**Ejemplo de aprobación (datos de demostración):**
 ```json
 {
+  "expectedVersion": 1,
   "verifiedAmountMinor": 30000,
   "bankPostedAt": "2026-10-27T01:33:00Z",
   "bankConfirmationReference": "REF-BANCO-DEMOSTRACION",
-  "note": "Depósito verificado en extracto bancario."
+  "note": "Depósito verificado en extracto bancario.",
+  "bankVerified": true,
+  "duplicateSignalsReviewed": true
 }
 ```
-**200:** `{orderCode,status:'PAID',soldTicketCount:3,reviewedAt}`. Solo después de verificación humana, bloqueo e idempotencia.
+El importe debe ser exactamente el total congelado de la orden, entero en
+centavos; fecha con zona horaria y sin exceder cinco minutos futuros.
+`duplicateSignalsReviewed` es opcional salvo señales de referencia/hash o
+referencia bancaria verificada repetida: entonces debe ser true. Estas señales
+requieren revisión humana y no determinan fraude automáticamente.
+
+Las acciones responden **200** con
+`{actionId,orderCode,status,version,soldTicketCount,reservedTicketCount,
+releasedTicketCount,reviewedAt,reviewedBy}`. El reintento idéntico devuelve el
+resultado original. Aprobación convierte exactamente q RESERVED en SOLD.
 
 **Ejemplo cancelación (solución del pago explícita):**
 ```json
 {
+  "expectedVersion": 1,
   "resolutionType":"NOT_PAID_CONFIRMED",
   "reason":"Comprobante inválido y sin depósito bancario localizado tras conciliación.",
-  "evidenceReference":"INC-001"
+  "evidenceReference":"INC-DEMOSTRACION",
+  "reconciliationConfirmed":true
 }
 ```
-Para fondos ingresados pero no asignables, documentar reembolso/reconciliación antes de liberar; no permitir cancelación simple de `PAID`.
+REFUNDED exige además receivedAmountMinor, refundAmountMinor (ambos positivos
+e iguales), refundReference y refundedAt con zona. Registra una devolución
+comprobada fuera del sistema; no ejecuta una transferencia bancaria.
+DUPLICATE_RESOLVED exige duplicateOfOrderId de otra orden PAID y
+duplicateBankReference igual a la referencia verificada de su reporte VERIFIED
+del mismo banco. Campos de otra modalidad se rechazan.
+La cancelación conserva orden, reporte, archivo e historial, resuelve incidencias
+y libera exactamente q RESERVED. PAID/CANCELLED son terminales para estas acciones.
+
+Errores B5 adicionales: 401 SESSION_REVOKED; 403 MFA_REQUIRED o
+ADMIN_ACCESS_REVOKED; 422 AMOUNT_MISMATCH, DUPLICATE_REVIEW_REQUIRED,
+RECONCILIATION_REQUIRED o INVALID_DATE_RANGE; 409 INVALID_ORDER_STATE;
+503 AUTH_UNAVAILABLE/STORAGE_UNAVAILABLE. Falta de rol OWNER: 403 FORBIDDEN.
+Las rutas de cierre, dashboard y exportación de la tabla anterior corresponden
+a B6; su inclusión en el plan no implica que estén implementadas.
 
 ## Matriz compacta de estados
 

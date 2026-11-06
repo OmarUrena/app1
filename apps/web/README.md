@@ -1,83 +1,60 @@
-﻿# App Sorteos — frontend F1
+# App Sorteos — frontend integrado M4
 
-Aplicación web Next.js con prioridad móvil: fondos petróleo oscuros, acentos dorados, fotografía conceptual y títulos editoriales. Usa React, TypeScript estricto y Tailwind. Idioma español dominicano, moneda DOP y hora America/Santo_Domingo.
+Desde la raíz de AppRifas, iniciar el backend configurado con `npm run dev:api` y la web con `npm run dev:web` en otra terminal. Abrir http://127.0.0.1:3000/rifas. No se requiere cambiar de rama ni de carpeta de trabajo.
 
-## Iniciar la web
+El script `scripts/start-web.ps1` usa API_MODE=live, APP_ENV=development y API_BASE_URL=http://127.0.0.1:3001/api/v1 sin modificar .env.local. Permite -Port y -ApiBaseUrl. CORS_ORIGINS de NestJS debe incluir el origen web exacto; usar 127.0.0.1 en ambos servicios para compartir la cookie invitada. Para demo explícita usar -Demo; demo no crea cupos ni órdenes.
 
-Desde la raíz, con Node 24 y las dependencias del monorepo instaladas:
+## Rutas
+
+| Ruta | Función |
+|---|---|
+| / y /rifas | Catálogo real B2, estados de carga, vacío y errores |
+| /rifas/[slug] | Detalle público y disponibilidad |
+| /rifas/[slug]/participar | Cantidad, pre-reserva B3 y formulario único B4 con comprobante obligatorio |
+| /orden/confirmacion | Consulta protegida por sesión; números reservados y pago pendiente de revisión |
+| /orden/recuperar | Recuperación idempotente de envíos ambiguos de la pestaña |
+| /ayuda y /privacidad | Ayuda y tratamiento de datos |
+| /admin/login | Login real, renovación de sesión existente y acceso exclusivo por allowlist |
+| /admin/mfa | Verificación TOTP reciente e inscripción del primer autenticador |
+| /admin/ordenes | Bandeja con filtros y paginación, sin PII en lista |
+| /admin/ordenes/[id] | Detalle protegido, comprobante privado, historial y decisiones de conciliación |
+
+Para ver el formulario hay que confirmar primero cupo de una rifa publicada con disponibilidad. Requiere API/DB configuradas; para enviar también cuenta de pruebas activa y Storage privado. No se inventan cuentas ni pagos. El seed básico DRAFT no publica por sí solo una rifa.
+
+## Configuración y verificación
+
+Variables servidor documentadas en [.env.example](.env.example): API_BASE_URL, API_MODE, APP_ENV, RECEIPT_MAX_BYTES (igual al backend), WEB_ORIGIN y PUBLIC_PRIZE_IMAGE_BASE_URL (solo imágenes públicas de premios). Sin claves privilegiadas en navegador. Conservar las variables privadas existentes.
+
+Para M4 configurar también SUPABASE_URL (HTTPS) y SUPABASE_PUBLISHABLE_KEY (sb_publishable_) del mismo proyecto que NestJS, solo en el servidor web. No usar service_role o claves secretas en estas variables. Sin Auth configurado o en modo demo, login no recibe credenciales. El administrador debe existir en Auth y tener una entrada activa en admin_users mediante el procedimiento autorizado; no hay registro público. B3–B5 y permisos sobre metadatos Auth deben estar aplicados en el entorno antes de usar revisión financiera.
+
+Login envía credenciales al servidor web; los tokens quedan en cookies HttpOnly/Strict de alcance /admin, Secure con HTTPS. La aplicación solicita TOTP y permite configurar el primer autenticador manualmente si falta. Requiere MFA en los últimos 15 minutos. Si el access token vence al abrir una página, volver al login y usar «Continuar sesión existente»; la renovación ocurre en Route Handler, no durante render. Logout revoca la sesión actual y borra cookies; un fallo de revocación se informa. No enviar contraseñas/códigos por chat.
+
+Logout mantiene además una marca HttpOnly sin credenciales que impide reabrir la sesión con cookies de respuestas pendientes; solo un login nuevo la elimina. Si Auth falla, el acceso local queda cerrado y el login muestra «Revocación remota pendiente», para seguir el procedimiento de seguridad del propietario. Las lecturas normales no renuevan ni reescriben credenciales.
+
+OWNER puede aprobar/cancelar; ADMIN puede revisar/requerir resolución. Aprobar exige importe exacto y verificación bancaria, cancelar exige conciliación documentada. La pantalla ofrece los tres resultados de cancelación B5: no ingreso, reembolso completo ya realizado o duplicado contra otra orden PAID. NEEDS_RESOLUTION mantiene los boletos reservados. Ante pérdida de respuesta, usar «Reintentar misma decisión»; ante conflicto, actualizar detalle. No reenviar automáticamente tras recargar.
+
+Los comprobantes se obtienen por proxy autenticado y se muestran mediante blob temporal, sin URL pública ni optimización/caché. Descargar genera una copia privada bajo responsabilidad del operador. M4 no incorpora editor de rifas, dashboard agregado, CSV, cierre ni sorteo.
+
+Prueba integrada aislada (PostgreSQL 17, dependencias y navegadores Playwright ya instalados):
 
 ```powershell
-if (-not (Test-Path apps/web/.env.local)) {
-    Copy-Item apps/web/.env.example apps/web/.env.local
-}
-npm run dev --workspace @sorteos/web
+$env:PLAYWRIGHT_BROWSERS_PATH = Join-Path (Get-Location) '.tmp/playwright-browsers'
+powershell -NoProfile -File scripts/test-backend-local.ps1 -PasswordAuthentication -Port 54346 -TestScript test:m4
 ```
 
-Abrir http://127.0.0.1:3000. El ejemplo activa API_MODE=mock y APP_ENV=development. La vista permite explorar cinco rifas de demostración sin órdenes, transferencias ni datos personales. Si ya existe .env.local, respetar su contenido y comprobar esas variables para ver el catálogo demo.
-
-La instalación se administra desde raíz mediante pnpm install --frozen-lockfile. El backend administra el workspace, lockfile y packages/api-client. Generar el cliente compartido con pnpm generate:api después de una instalación limpia. No instalar otro árbol independiente dentro de apps/web. Si pnpm.exe falla en Windows, utilizar el paquete JavaScript local preparado por scripts/install-backend.ps1, sin modificar la instalación global.
-
-## Rutas y comportamiento F1
-
-| Ruta | Contenido |
-| --- | --- |
-| / | Hero fotográfico, dos premios demo y explicación del proceso |
-| /rifas | Búsqueda tolerante a tildes y filtros por estado; vacío recuperable |
-| /rifas/[slug] | Galería, precio, estado, inventario, reglas y cantidad local |
-| /ayuda | Explicación del proceso y preguntas desplegables |
-| /admin/login | Acceso aún no habilitado; no captura credenciales |
-| /admin | Redirección al placeholder de login |
-
-El comprador nunca selecciona números. El selector de cantidad es una vista previa sin cálculo de cobro ni hold. El botón de compra permanece deshabilitado y explica que no hay compras en demo. Los porcentajes usan vendidos confirmados; agotamiento, pausa y cierre son estados distintos.
-
-Solo el modo mock carga fixtures. En live se muestra un catálogo en preparación; no se llama a endpoints de negocio todavía ni se sustituyen fallos de API por datos ficticios. La integración real corresponde a F2/B2; las compras, a F3–F4/B3–B4.
-
-## Configuración
-
-| Variable servidor | Uso |
-| --- | --- |
-| API_MODE | live por defecto; mock únicamente para desarrollo/test |
-| APP_ENV | development, test, staging o production |
-| API_BASE_URL | URL terminada en /api/v1, HTTPS en staging/production; necesaria al integrar la API |
-| NEXT_TELEMETRY_DISABLED | 1 desactiva telemetría de Next.js |
-| PLAYWRIGHT_BROWSERS_PATH | Ubicación local de Chromium, para instalación y pruebas |
-| PLAYWRIGHT_REUSE_SERVER | 1 permite reutilizar un servidor demo que ya esté abierto durante E2E; por defecto se inicia uno propio |
-
-Mock está bloqueado durante build de producción. No exponer estas variables como NEXT_PUBLIC ni agregar secretos a cliente. El armazón live puede compilar sin una API conectada. En esta fase no se envían escrituras de negocio.
-
-## Verificar
+El runner inicia NestJS, protocolo Auth/Storage local y una copia temporal de Next en 3115, sin usar .env.local ni detener la web en 3000. Fallará si falta infraestructura; no omite pruebas silenciosamente. Evidencias y límites en [estado frontend](../../docs/ESTADO_FRONTEND.md), decisión en [ADR 0012](../../docs/decisions/0012-m4-admin-web-session.md). Validar Auth/Storage remotos sigue requiriendo un entorno autorizado.
 
 ```powershell
-npm run test:core --workspace @sorteos/web
+npm run api:check-catalog --workspace @sorteos/web
 npm run lint --workspace @sorteos/web
 npm run typecheck --workspace @sorteos/web
+npm run test:core --workspace @sorteos/web
 npm run test --workspace @sorteos/web
-$env:PLAYWRIGHT_BROWSERS_PATH = Join-Path (Get-Location) '.tmp/playwright-browsers'
-npm exec --workspace @sorteos/web -- playwright install chromium
 npm run test:e2e --workspace @sorteos/web
 ```
 
-Usar puerto 3000 libre. Si se reutiliza un servidor con PLAYWRIGHT_REUSE_SERVER=1, confirmar primero la banda DEMO: la suite también la comprueba. El servidor existente no se cierra al terminar. Los E2E cubren 360, 768 y 1280 px. La CI inicia su propio servidor mock/test; no observa ni usa datos productivos.
+Playwright usa puerto 3102 y Chromium/Firefox/WebKit. Configurar PLAYWRIGHT_BROWSERS_PATH con la carpeta local de navegadores. No ejecutar dos servidores Next dev sobre este mismo checkout simultáneamente.
 
-Para comprobar el build live en otra sesión de PowerShell, sin cambiar .env.local:
+Pruebas live: test:live, test:checkout:live y test:orders:live requieren PostgreSQL efímero local, TEST_DATABASE_URL, Next live en 3105 apuntando a API de pruebas en 3106 y navegadores instalados. BACKEND_CHECKOUT es opcional y predetermina esta misma raíz. No usar datos productivos. Ver [estado consolidado](../../docs/ESTADO_FRONTEND.md) para resultados de esta integración.
 
-```powershell
-$env:API_MODE = 'live'
-$env:APP_ENV = 'production'
-$env:API_BASE_URL = 'https://api.example.test/api/v1'
-$env:NEXT_TELEMETRY_DISABLED = '1'
-npm run build --workspace @sorteos/web
-```
-
-La URL de ejemplo sirve para validar configuración; no corresponde a una API desplegada. F1 no la consulta. Estas variables quedan en esa sesión de PowerShell; usar otra terminal para continuar en modo demo o restaurarlas.
-
-## Evidencia y activos
-
-- Guía aprobada: docs/frontend/GUIA_VISUAL.md.
-- Composiciones: docs/frontend/DISENO_F1.md; decisiones: docs/decisions/0003-frontend-f1-visual.md.
-- Resultado detallado: docs/frontend/ESTADO_F1.md; historial F0: docs/frontend/ESTADO_F0.md.
-- Capturas F1: docs/frontend/screenshots/f1. Las capturas F0 se conservan.
-- Imágenes conceptuales originales: public/images/demo; procedencia y prompts: docs/frontend/ASSETS_F1.md. Next Image optimiza las variantes servidas.
-- Medición local de carga: docs/frontend/PERFORMANCE_F1.json. Se reproduce con node apps/web/scripts/measure-ui.mjs desde raíz, con Chromium configurado y la web demo abierta. No es Lighthouse ni un benchmark de producción.
-
-No se desplegó ni se habilitaron compras, banca o autenticación. Los textos legales definitivos y premios reales deberán aprobarse en sus fases. Las pruebas Chromium/axe complementan, sin reemplazar, la revisión humana con lector de pantalla y pruebas de dispositivo real.
+Para build usar API_MODE=live y APP_ENV=production; API_BASE_URL debe usar HTTPS (por ejemplo https://api.example.test/api/v1). Mock está prohibido en build de producción. No se ha desplegado ni habilitado administración F5.

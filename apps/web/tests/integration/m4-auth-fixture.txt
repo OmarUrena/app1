@@ -1,0 +1,37 @@
+// Test-only Auth protocol adapter. Nothing from this file is imported by the product.
+if(req.url?.startsWith('/auth/v1/token?')){
+  let raw='';for await(const chunk of req)raw+=String(chunk);const body=JSON.parse(raw);
+  let subject:string,sessionId:string|undefined,previous:{subject:string;sessionId:string;aal?:string;mfaAt?:number}|undefined;
+  if(req.url.includes('grant_type=password')){
+    if(body.password!==m4Password){res.writeHead(400,{'content-type':'application/json'});res.end(JSON.stringify({code:'invalid_credentials',msg:'Invalid credentials'}));return;}
+    subject=body.email==='owner@example.invalid'?ownerSubject:body.email==='staff@example.invalid'?staffSubject:body.email==='new@example.invalid'?m4FreshSubject:outsider;
+  }else{
+    previous=m4Refreshes.get(body.refresh_token);if(!previous){res.writeHead(401);res.end('{}');return;}
+    subject=previous.subject;sessionId=previous.sessionId;
+  }
+  const jwt=await token(subject,{aal:previous?.aal??'aal1',mfaAt:previous?.mfaAt,sessionId});const parsed=JSON.parse(Buffer.from(jwt.split('.')[1],'base64url').toString());
+  if(subject===m4FreshSubject&&!sessionId){await db.query("UPDATE auth.sessions SET factor_id=NULL,aal='aal1' WHERE id=$1",[parsed.session_id]);await db.query('DELETE FROM auth.mfa_factors WHERE user_id=$1',[subject]);}
+  const refresh=randomUUID();m4Refreshes.set(refresh,{subject,sessionId:parsed.session_id,aal:previous?.aal??'aal1',mfaAt:previous?.mfaAt});
+  res.setHeader('content-type','application/json');res.end(JSON.stringify({access_token:jwt,refresh_token:refresh,token_type:'bearer',expires_in:3600,user:await fixtureUser(subject)}));return;
+}
+if(req.url==='/auth/v1/factors'||req.url?.startsWith('/auth/v1/factors/')||req.url?.startsWith('/auth/v1/logout')){
+  const verified=await jwtVerify(req.headers.authorization?.slice(7)??'',keys.publicKey);
+  const subject=String(verified.payload.sub),sessionId=String(verified.payload.session_id);
+  if(req.url.startsWith('/auth/v1/logout')){if(m4LogoutFailure){res.writeHead(503,{'content-type':'application/json'});res.end('{"code":"unexpected_failure","msg":"Fixture offline"}');return;}await db.query('DELETE FROM auth.sessions WHERE id=$1',[sessionId]);res.writeHead(204);res.end();return;}
+  if(req.url==='/auth/v1/factors'&&req.method==='POST'){
+    const id=randomUUID();await db.query("INSERT INTO auth.mfa_factors(id,user_id,status,factor_type) VALUES($1,$2,'unverified','totp')",[id,subject]);
+    res.setHeader('content-type','application/json');res.end(JSON.stringify({id,type:'totp',totp:{secret:'JBSWY3DPEHPK3PXP',qr_code:'<svg/>',uri:'otpauth://totp/TEST_ONLY'}}));return;
+  }
+  const factorId=req.url.split('/')[4];
+  const owned=(await db.query('SELECT id FROM auth.mfa_factors WHERE id=$1 AND user_id=$2',[factorId,subject])).rowCount;
+  if(!owned){res.writeHead(404);res.end('{}');return;}
+  if(req.method==='DELETE'){await db.query("DELETE FROM auth.mfa_factors WHERE id=$1 AND status='unverified'",[factorId]);res.setHeader('content-type','application/json');res.end('{}');return;}
+  if(req.url.endsWith('/challenge')){res.setHeader('content-type','application/json');res.end(JSON.stringify({id:randomUUID(),type:'totp',expires_at:Math.floor(Date.now()/1000)+300}));return;}
+  if(req.url.endsWith('/verify')){
+    let raw='';for await(const chunk of req)raw+=String(chunk);
+    if(JSON.parse(raw).code!=='123456'){res.writeHead(422,{'content-type':'application/json'});res.end(JSON.stringify({code:'mfa_verification_failed',msg:'Invalid code'}));return;}
+    await db.query("UPDATE auth.mfa_factors SET status='verified' WHERE id=$1",[factorId]);await db.query("UPDATE auth.sessions SET factor_id=$2,aal='aal2' WHERE id=$1",[sessionId,factorId]);
+    const jwt=await token(subject,{sessionId});const refresh=randomUUID();m4Refreshes.set(refresh,{subject,sessionId,aal:'aal2',mfaAt:Math.floor(Date.now()/1000)});
+    res.setHeader('content-type','application/json');res.end(JSON.stringify({access_token:jwt,refresh_token:refresh,token_type:'bearer',expires_in:3600,user:await fixtureUser(subject)}));return;
+  }
+}

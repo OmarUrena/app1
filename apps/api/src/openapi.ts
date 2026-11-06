@@ -3,9 +3,9 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 export function createDocument(app: INestApplication) {
   const document = SwaggerModule.createDocument(app, new DocumentBuilder()
-    .setTitle('App Sorteos API').setDescription('B5: órdenes, conciliación manual auditada, MFA reciente y comprobantes privados.')
+    .setTitle('App Sorteos API').setDescription('M4: sesión administrativa, conciliación manual auditada, MFA reciente y comprobantes privados.')
     .addCookieAuth('__Host-sorteos_guest',{type:'apiKey',in:'cookie',description:'Cookie HttpOnly de checkout-session; en desarrollo: sorteos_guest.'},'guestSession')
-    .addBearerAuth().setVersion('0.5.0').build(), {
+    .addBearerAuth().setVersion('0.5.1').build(), {
     operationIdFactory: (controller, method) => `${controller}_${method}`,
   });
   for (const path of Object.values(document.paths)) {

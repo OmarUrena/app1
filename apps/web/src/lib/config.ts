@@ -1,5 +1,14 @@
 type EnvironmentInput = Record<string, string | undefined>;
 
+export function readAdminEnvironment(env: EnvironmentInput) {
+  const { mode, appEnv } = readEnvironment(env);
+  if (mode !== "live" || !env.SUPABASE_URL || !env.SUPABASE_PUBLISHABLE_KEY) return undefined;
+  const url = new URL(env.SUPABASE_URL);
+  if (url.username || url.password || url.search || url.hash || url.pathname !== "/" || (url.protocol !== "https:" && !(appEnv === "test" && url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname)))) throw new Error("SUPABASE_URL administrativo debe ser un origen HTTPS sin credenciales.");
+  if (!/^sb_publishable_[A-Za-z0-9_-]+$/.test(env.SUPABASE_PUBLISHABLE_KEY)) throw new Error("La web administrativa requiere una clave publicable de Supabase, nunca una clave secreta o service_role.");
+  return { url: url.origin, publishableKey: env.SUPABASE_PUBLISHABLE_KEY };
+}
+
 export function readEnvironment(env: EnvironmentInput) {
   const mode = env.API_MODE ?? "live";
   const appEnv = env.APP_ENV ?? (env.NODE_ENV === "development" ? "development" : "production");
@@ -19,5 +28,7 @@ export function readEnvironment(env: EnvironmentInput) {
     if (["staging", "production"].includes(appEnv) && url.protocol !== "https:") throw new Error("La API requiere HTTPS en staging/producción.");
     apiBaseUrl = url.toString().replace(/\/$/, "");
   }
-  return { mode, appEnv, apiBaseUrl } as const;
+  const receiptMaxBytes = Number(env.RECEIPT_MAX_BYTES ?? 5242880);
+  if (!Number.isSafeInteger(receiptMaxBytes) || receiptMaxBytes < 1 || receiptMaxBytes > 10485760) throw new Error("RECEIPT_MAX_BYTES debe ser un entero entre 1 y 10485760, coherente con la API.");
+  return { mode, appEnv, apiBaseUrl, receiptMaxBytes } as const;
 }

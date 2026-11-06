@@ -4,9 +4,10 @@
 **App Sorteos**: plataforma de venta de rifas de un único propietario en República Dominicana. Clientes compran como invitados; administración restringida. Idioma español, importes en pesos dominicanos (DOP). Arquitectura objetivo: Next.js + Tailwind (web), NestJS (API), PostgreSQL sobre Supabase (datos), Supabase Storage privado (comprobantes) y Supabase Auth para administradores.
 
 ## Antes de escribir código
+0. Trabaja exclusivamente en `main`, en esta carpeta principal. No crees ramas adicionales ni worktrees. Guarda los avances en commits claros sobre `main`; no dejes una nueva línea de desarrollo por fase o por capa. La política de una sola rama es una instrucción explícita del propietario.
 1. Inspecciona carpetas, dependencias, scripts, migraciones, tests, README y git status. No sobreescribas trabajo existente.
-2. Lee `docs/CONTRATO_API.md` y los planes. Si están en raíz, ajusta sus rutas documentales; no copies a ciegas.
-3. Trabaja solo la fase solicitada. Si requiere una fase previa, impleméntala mínimamente solo con consentimiento del usuario o informa el bloqueo.
+2. Lee `docs/CONTRATO_API.md` y `docs/PLAN_DESARROLLO.md`, la secuencia única de trabajo. Consulta `docs/PLAN_BACKEND.md` y `docs/PLAN_FRONTEND.md` como especificaciones técnicas del hito. Si están en raíz, ajusta sus rutas documentales; no copies a ciegas.
+3. Trabaja solo el hito integrado solicitado (M0–M7), incluyendo backend, frontend, datos, contrato y pruebas en una misma sesión y carpeta de trabajo. B0–B8/F0–F8 son referencias técnicas, no líneas de ejecución separadas. Reutiliza lo implementado y completa las diferencias de ambas capas antes de cerrar el hito. Si requiere un hito previo fuera del alcance autorizado, impleméntalo mínimamente solo con consentimiento del usuario o informa el bloqueo.
 4. Entrega implementación funcional, no solo pseudocódigo ni pantallas estáticas que fingen éxito.
 5. Registra supuestos y decisiones de arquitectura (`docs/decisions/` o sección ADR).
 
@@ -47,6 +48,7 @@
 - Implementar manejo centralizado de errores, validación de entradas, rate limiting, controles de acceso, logging con redacción de PII, y mecanismos contra abuso de pre-reservas.
 
 ## Definición de terminado (DoD) de cualquier fase
+- La unidad de entrega es el hito integrado de `docs/PLAN_DESARROLLO.md`: una funcionalidad conectada entre web y API, con evidencia de ambas capas y de su integración. Una capa terminada no completa el hito; distinguir evidencia histórica de verificaciones actuales.
 - Código compila y pasa lint/typecheck.
 - Tests relevantes pasan; no añadir tests falsos o saltarlos silenciosamente.
 - Si hay cambios de datos, migración + rollback/plan de recuperación + seed DEMO.

@@ -1,17 +1,44 @@
 # App Sorteos — paquete de implementación progresiva para Codex
 
+## Rama única: main
+
+El proyecto se desarrolla exclusivamente en `main`, desde esta carpeta. Backend, frontend y documentación se guardan juntos en commits de esa rama. No crear ramas por fase, por capa ni worktrees adicionales. Las referencias a `feat/*` en informes históricos se conservan para trazabilidad. Decisión: [ADR 0013](docs/decisions/0013-main-only.md).
+
+## Proyecto integrado — 2026-11-05
+
+M4 añade administración web con login real, TOTP, bandeja, visor privado y decisiones de revisión sobre B5. Configurar las variables Auth de servidor de [apps/web/.env.example](apps/web/.env.example) y usar `/admin/login`. Guía operativa y prueba local integrada en [README web](apps/web/README.md); resultados y limitaciones en [estado frontend](docs/ESTADO_FRONTEND.md#m4). No hay despliegue ni cambios remotos por esta entrega.
+
+Frontend F2–F5 y backend B1–B5 incorporados en esta carpeta principal. No hace falta iniciar la web desde otro worktree.
+
+El desarrollo sigue ahora [un único plan M0–M7](docs/PLAN_DESARROLLO.md): cada hito incluye backend, frontend y verificación conjunta en la misma sesión. **M4 está implementado y verificado localmente**, incluido el flujo M1–M3. El siguiente hito propuesto es **M5, operación diaria (B6 + F6)**. El resultado local no certifica Auth/Storage remotos ni autoriza despliegue o ventas reales.
+
+En dos terminales, desde la raíz:
+
+```powershell
+npm run dev:api
+# En la segunda terminal:
+npm run dev:web
+```
+
+Abrir http://127.0.0.1:3000/rifas y entrar a participar en una rifa publicada. El formulario está en /rifas/[slug]/participar; aparece después de confirmar cupo con la API. La API debe estar configurada con PostgreSQL local, Storage privado y una cuenta publicada de pruebas. CORS_ORIGINS debe incluir http://127.0.0.1:3000. No hacer transferencias reales durante pruebas.
+
+El script web usa live y API_BASE_URL=http://127.0.0.1:3001/api/v1 solo durante su proceso; conserva .env.local. Para explorar el catálogo demo: powershell -NoProfile -File scripts/start-web.ps1 -Demo. Demo no permite crear órdenes ni ver un formulario que simule una compra.
+
+Estado y límites actuales: [frontend](docs/ESTADO_FRONTEND.md) y [backend](docs/ESTADO_BACKEND.md). Las secciones anteriores por fase conservan su contexto histórico.
+
+
 **Fecha de especificación:** 2026-10-26  
 **Estado:** backend B0 validado localmente el 2026-10-29: lint, typecheck, build, OpenAPI/cliente y 17 pruebas aprobadas.  
 **Avance B1 (2026-11-01):** esquema y migraciones validados en `feat/backend-b1`;
-39 pruebas aprobadas, incluidas 20 de integración PostgreSQL. Ver [estado B1](docs/ESTADO_B1.md).
+39 pruebas aprobadas, incluidas 20 de integración PostgreSQL. Ver [estado B1](docs/ESTADO_BACKEND.md#b1).
 **Avance B2 (2026-11-01):** catálogo y administración de rifas en `feat/backend-b2`,
 JWT + usuario Auth + allowlist, publicación auditada y rol DB limitado.
-Ver [estado B2](docs/ESTADO_B2.md) para pruebas y configuración.
+Ver [estado B2](docs/ESTADO_BACKEND.md#b2) para pruebas y configuración.
 **Avance B3 (2026-11-03):** sesión invitada, pre-reservas idempotentes,
 asignación CSPRNG, límites persistentes y liberación segura de HELD.
-Ver [estado B3](docs/ESTADO_B3.md).
+Ver [estado B3](docs/ESTADO_BACKEND.md#b3).
 **Avance B4 (2026-11-03):** envío único de orden/comprobante, correo obligatorio,
-consulta protegida y números reservados después del commit. Ver [estado B4](docs/ESTADO_B4.md).
+consulta protegida y números reservados después del commit. Ver [estado B4](docs/ESTADO_BACKEND.md#b4).
 **Idioma de producto:** español (República Dominicana); moneda DOP (RD$).
 
 ## Propósito
@@ -72,7 +99,7 @@ están documentadas en `apps/api/.env.example`; no se requieren claves Supabase 
 En staging/producción CORS exige HTTPS, DB exige TLS y Swagger está prohibido.
 `HOST=127.0.0.1` por defecto; para contenedores configurar explícitamente `HOST=0.0.0.0`.
 
-Estado de validación y limitaciones: [docs/ESTADO_B0.md](docs/ESTADO_B0.md).
+Estado de validación y limitaciones: [estado backend B0](docs/ESTADO_BACKEND.md#b0).
 Decisiones: [ADR 0001](docs/decisions/0001-backend-b0.md).
 
 ## Persistencia B1: uso local
@@ -109,7 +136,7 @@ La suite crea sus propias DBs desechables y las elimina al terminar. El script
 detiene únicamente la instancia que inició, sin tocar el servicio del sistema.
 El procedimiento fue verificado: migraciones, seed, integridad, RLS y recuperación
 aprobados. Auditoría de producción sin alertas; queda un aviso moderado en las
-herramientas de desarrollo, documentado en [ESTADO_B1](docs/ESTADO_B1.md).
+herramientas de desarrollo, documentado en [estado backend B1](docs/ESTADO_BACKEND.md#b1).
 Recuperación de esquema vacío y plan con datos: [infra/recovery](infra/recovery/README.md).
 
 ## Catálogo y administración B2
@@ -164,16 +191,22 @@ Solo B2: agregar `-TestScript test:catalog`. El proveedor de pruebas es local y
 usa claves generadas; Supabase real y assets propios requieren una verificación
 del entorno antes de operar. Ver [ADR 0005](docs/decisions/0005-backend-b2-catalog-auth.md).
 
+## Estados consolidados
+
+- [Plan de desarrollo integrado](docs/PLAN_DESARROLLO.md): secuencia M0–M7 y próximo hito conjunto.
+- [Estado del backend](docs/ESTADO_BACKEND.md): resumen, evidencias y pendientes por fase B0–B5.
+- [Estado del frontend](docs/ESTADO_FRONTEND.md): resumen, evidencias F0–F4 y pendientes de la integración actual.
+
 ## Archivos y orden de lectura de Codex
 
 Para operar o integrar pre-reservas, ver la sección B3 al final de este documento.
 
 1. `AGENTS.md`: contexto inmutable, límites, arquitectura y reglas del agente. Debe ubicarse en la raíz del repositorio.
 2. `docs/CONTRATO_API.md`: rutas, payloads, errores, estados y reglas compartidas. Fuente de integración backend-frontend.
-3. `docs/PLAN_BACKEND.md`: fases B0-B8, entregables, esquemas, seguridad y criterios de salida.
-4. `docs/PLAN_FRONTEND.md`: fases F0-F8, pantallas, estados visuales, integración y criterios de salida.
+3. `docs/PLAN_DESARROLLO.md`: única secuencia de ejecución M0–M7, alcance conjunto y estado de partida; consultar después los estados de ambas capas.
+4. `docs/PLAN_BACKEND.md` y `docs/PLAN_FRONTEND.md`: especificaciones técnicas B0–B8/F0–F8 del hito integrado, sin agendas separadas.
 5. `docs/MATRIZ_QA.md`: pruebas de aceptación, concurrencia, fallos y seguridad.
-6. `docs/PROMPTS_CODEX.md`: instrucciones listas para copiar a Codex, una fase por ejecución.
+6. `docs/PROMPTS_CODEX.md`: instrucciones listas para continuar un hito integrado en una sola sesión.
 
 ## Estructura sugerida (adaptar, NO sobrescribir proyecto existente)
 
@@ -183,6 +216,7 @@ app-sorteos/
 ├─ README.md
 ├─ docs/
 │  ├─ CONTRATO_API.md
+│  ├─ PLAN_DESARROLLO.md
 │  ├─ PLAN_BACKEND.md
 │  ├─ PLAN_FRONTEND.md
 │  ├─ MATRIZ_QA.md
@@ -199,26 +233,15 @@ app-sorteos/
 
 ## Milestones / integración continua por cortes verticales
 
-| Hito | Backend | Frontend | Resultado visible / verificable |
-|---|---|---|---|
-| M0 – Bases | B0 | F0 | Repositorio, CI, entornos, convenciones, scripts y contratos |
-| M1 – Catálogo | B1 + B2 | F1 + F2 | Admin crea rifa en entorno demo; visitante ve lista y detalle |
-| M2 – Disponibilidad | B3 | F3 | Cantidad, cotización y pre-reserva temporal sin orden |
-| M3 – Compra real integrada (sin banca real) | B4 | F4 | Un solo formulario envía datos + comprobante y devuelve números |
-| M4 – Validación de pagos | B5 | F5 | Admin aprueba/requiere resolución; cliente ve estado protegido |
-| M5 – Operación | B6 | F6 | Cierre, conciliación, verificación protegida e indicadores |
-| M6 – Robustez | B7 | F7 | Pruebas E2E, acceso, rendimiento, accesibilidad y recuperación |
-| M7 – Prelanzamiento | B8 | F8 | Staging listo; despliegue productivo solo tras checklist y permiso legal |
-
-**Primera entrega de valor:** M1. **MVP funcional de punta a punta:** M4, usando bancos/cuentas de demostración y comprobantes simulados. **Operación real:** requiere M5-M7 y revisiones legales, fiscales, financieras y de seguridad.
+La secuencia, correspondencia B/F, criterios y situación actual se mantienen en [PLAN_DESARROLLO.md](docs/PLAN_DESARROLLO.md). M4 completa la administración web sobre B5 y verifica el flujo conjunto local de M1–M4. El ensayo autorizado con Auth/Storage reales sigue pendiente; la preparación para operar requiere M5–M7 y las revisiones legales, fiscales, financieras y de seguridad.
 
 ## Modo de trabajo de Codex
 
 - Leer archivos completos y reconocer el estado real del repo antes de cambiarlo.
-- Ejecutar **una fase** por tarea; no construir B0-B8/F0-F8 a la vez.
+- Ejecutar **un hito integrado** por alcance autorizado, trabajando API y web en la misma sesión y carpeta. No dividir por rol backend/frontend ni ampliar a otros hitos automáticamente.
 - Antes de programar: mostrar alcance, dependencias, ficheros previstos y decisiones técnicas.
-- Implementar código, migraciones, pruebas, documentación y comandos reproducibles para la fase.
-- Terminar cada fase con: resumen, archivos modificados, comandos corridos y resultados, pendientes, riesgos y siguiente fase desbloqueada.
+- Implementar código conectado, migraciones cuando correspondan, contrato/cliente, pruebas y documentación del hito en ambas capas.
+- Terminar cada hito con: resumen, archivos modificados, comandos corridos y resultados, evidencia de integración, pendientes, riesgos y siguiente hito desbloqueado.
 - Si falta un secreto, integración de Supabase o servicio externo, implementar adaptadores y usar configuración de DEMO sin inventar credenciales ni conexiones.
 - Nunca tocar datos productivos, borrar tablas, desplegar, realizar pagos reales o publicar una rifa sin autorización explícita.
 
@@ -313,7 +336,7 @@ const result = await submitOrder(api, form, stableIdempotencyKey, window.locatio
 El helper construye FormData y deja al navegador generar Content-Type/boundary;
 no fijar Content-Type manualmente. SSR debe reenviar cookie y Origin permitido
 desde una sesión protegida; credentials include en Node no crea un cookie jar.
-La interfaz de formulario corresponde a F4 y no se implementa en la rama backend.
+La interfaz F4 está integrada en apps/web, junto al backend.
 
 Storage siempre ocurre fuera de la transacción de inventario. Los intentos se
 registran en receipt_staging; rollback o duplicados compensan archivos temporales.
@@ -332,3 +355,38 @@ Pruebas locales usan PostgreSQL real y un servidor de protocolo Storage; el
 adaptador de producto usa el SDK real. Falta configuración/verificación del
 bucket remoto y aplicar B3/B4 con autorización. No se desplegó ni publicó una rifa.
 Ver [ADR 0008](docs/decisions/0008-backend-b4-order-receipts.md).
+
+## Revisión manual B5
+
+Implementa bandeja/detalle de órdenes, comprobante por proxy autenticado,
+inicio de revisión, aprobación, solicitud de resolución y cancelación conciliada.
+Ver [contrato](docs/CONTRATO_API.md) y [ADR 0009](docs/decisions/0009-backend-b5-manual-payments.md).
+
+Requiere las cinco migraciones, Auth del mismo proyecto y allowlist activa.
+El administrador debe inscribir y verificar TOTP mediante Supabase Auth y usar
+una sesión `aal2` con verificación TOTP de menos de 15 minutos; renovar un JWT
+no sustituye esa verificación. OWNER aprueba/cancela; ADMIN puede revisar.
+Las rutas comprueban también la sesión y el factor vigentes en la base.
+Sin configuración/permisos Auth correctos se deniega la operación.
+
+El cliente `createApiClient(apiOrigin, accessToken)` admite Bearer. Obtener
+`version` del detalle y enviar `expectedVersion` más `Idempotency-Key` UUID en
+cada acción; conservar la clave ante reintentos. Para descargar el comprobante,
+usar la ruta del descriptor con Bearer y `parseAs: 'blob'` en el cliente tipado.
+La ruta no funciona como enlace anónimo. No persistir tokens en URLs o logs.
+
+La aprobación exige comprobar el ingreso bancario manualmente; la cancelación
+exige evidencia y conciliación. El sistema registra reembolsos ya comprobados,
+sin realizar transferencias. NEEDS_RESOLUTION mantiene los números reservados.
+
+```powershell
+# Integración completa B1–B5, aislada de Supabase:
+powershell -NoProfile -File scripts/test-backend-local.ps1 -PasswordAuthentication -Port 54343
+# Solo B5:
+powershell -NoProfile -File scripts/test-backend-local.ps1 -PasswordAuthentication -Port 54343 -TestScript test:payments
+```
+
+La migración B5 requiere permisos sobre metadatos de sesiones/factores Auth;
+no concede lectura de secretos. Verificar su aplicación y MFA con sesión real
+en staging antes de operar. Aplicación remota B3–B5, Storage privado real y
+validación de esa sesión siguen pendientes. Estado en [B5](docs/ESTADO_BACKEND.md#b5).

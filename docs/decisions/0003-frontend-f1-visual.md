@@ -24,4 +24,4 @@ No se modifica backend ni el contrato de negocio. El cliente OpenAPI existente p
 
 Playwright puede reutilizar un servidor existente solo mediante PLAYWRIGHT_REUSE_SERVER=1. Antes de hacerlo se verificó que localhost:3000 respondía con el rediseño y la banda DEMO; cada smoke test vuelve a comprobar esa banda. Por defecto CI inicia un servidor propio con mock/test y no reutiliza otro. No se detiene el servidor del usuario.
 
-El estado final, resultados, capturas y límites se documentan en docs/frontend/ESTADO_F1.md. No se despliega ni se interviene en datos.
+El estado final, resultados, capturas y límites se documentan en [estado frontend F1](../ESTADO_FRONTEND.md#f1). No se despliega ni se interviene en datos.

@@ -3,7 +3,7 @@
 B0 solo consulta salud de PostgreSQL. B1 añade un único sistema de migraciones:
 Supabase CLI 2.122.0 y `supabase/migrations/`. Tablas privadas en `sorteos`, seed
 DEMO en `seeds/demo.sql` ejecutado desde las herramientas del backend y recuperación
-en `recovery/`. Ver [estado de verificación B1](../docs/ESTADO_B1.md).
+en `recovery/`. Ver [estado de verificación B1](../docs/ESTADO_BACKEND.md#b1).
 
 Los tests de B1 crean DBs desechables con el usuario de pruebas (requiere CREATEDB
 y CREATEROLE para verificar RLS). No aplican migraciones en la DB original que
@@ -87,3 +87,16 @@ PostgreSQL con rol limitado y un servidor Storage local que almacena los bytes
 de archivos de prueba válidos. El adaptador de producto requiere Supabase real,
 bucket privado y clave de servidor; no crea recursos remotos automáticamente.
 Recuperación: revertir B4 antes de B3/B2, reparar el historial mediante CLI.
+
+B5 añade la quinta migración y `admin_actions` (16 tablas en `sorteos`).
+`test:payments` verifica revisión, MFA, conciliación, proxy privado, concurrencia
+y recuperación. El fixture Auth solo existe en tests y usa firmas JWT reales;
+el producto requiere una sesión Supabase vigente y factor TOTP verificado.
+Una instalación PostgreSQL sin tablas Auth permite migrar, pero las operaciones
+B5 fallan cerrado. No crear tablas Auth de prueba en el entorno del producto.
+
+La migración concede al rol de servidor lectura de columnas de metadatos de
+sesión/factor y políticas SELECT acotadas al contexto autorizado. No concede
+secretos, tokens, BYPASSRLS ni SECURITY DEFINER. Verificar la compatibilidad y
+los permisos de las tablas administradas por Supabase antes de aplicar en staging.
+Para recuperar una fase anterior, retirar B5 primero; ver [recuperación](recovery/README.md).

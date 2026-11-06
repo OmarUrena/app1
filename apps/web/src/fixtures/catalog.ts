@@ -7,6 +7,7 @@ const rules = [
   "Las fechas, condiciones definitivas y requisitos de participación deberán publicarse antes de habilitar una rifa real.",
 ];
 const suv: RaffleView = {
+  demo: true,
   slug: "suv-premium-demo", title: "SUV premium", subtitle: "Una nueva perspectiva",
   category: "Vehículos", featured: true, status: "PUBLISHED",
   description: "Presencia que inspira. Espacio para nuevos caminos. Explora cómo se verá una rifa de vehículo, conoce su información y descubre cada paso antes de participar.",
@@ -19,6 +20,7 @@ const suv: RaffleView = {
   highlights: ["Imagen conceptual", "Asignación aleatoria", "Revisión manual del pago"], rules,
 };
 const laptop: RaffleView = {
+  demo: true,
   slug: "portatil-premium-demo", title: "Portátil de alto rendimiento", subtitle: "Ideas sin límites",
   category: "Tecnología", status: "PUBLISHED",
   description: "Un espacio para tus próximas ideas. Descubre la presentación de un premio tecnológico en esta demostración. Las especificaciones y condiciones de un premio real se publicarán junto a su rifa.",

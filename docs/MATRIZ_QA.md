@@ -1,5 +1,7 @@
 # Matriz de QA y criterios de aceptación — App Sorteos
 
+**Ejecución integrada:** usar la secuencia M0–M7 de [PLAN_DESARROLLO.md](PLAN_DESARROLLO.md). La columna Fase conserva referencias técnicas B/F; ejecutar los escenarios relevantes en ambas capas y su integración dentro del mismo hito. No cerrar un hito solo con pruebas aisladas de API o de UI.
+
 **Entornos de pruebas:** base de datos aislada, archivos y bancos ficticios, sin transferencias reales. Los escenarios deben ejecutarse automáticamente siempre que sea viable. Reportar PASS/FAIL/SKIPPED con evidencia; nunca marcar PASS por inferencia.
 
 ## A. Creación y configuración de rifas
@@ -69,6 +71,19 @@
 | P11 | Intentar cancelación directa de PAID | Bloqueado; procedimiento extraordinario fuera de alcance | B5 |
 | P12 | Reuso mismo comprobante o referencia | Señal de posible duplicación, sin aprobación automática | B5 |
 | P13 | Archivo comprobante público o firmado sin control | Debe fallar acceso no autorizado | B5/B7 |
+| P14 | JWT aal1, TOTP antiguo o instante futuro | 403 MFA_REQUIRED, sin cambios | B5 |
+| P15 | Sesión borrada, vencida, de otro usuario o factor revocado | Acceso denegado aunque el JWT no haya vencido | B5 |
+| P16 | Sesión revocada durante descarga de Storage | No entregar bytes del comprobante | B5 |
+| P17 | ADMIN intenta aprobar/cancelar | 403; solo OWNER puede conciliar | B5 |
+| P18 | expectedVersion obsoleta o clave repetida con otro payload | 409, sin sobrescribir la revisión | B5 |
+| P19 | Fallo SQL a mitad de aprobación | Rollback de reporte, orden, boletos y ledger | B5 |
+| P20 | Reembolso incompleto o duplicado sin orden PAID acreditada | Cancelación bloqueada; mantiene RESERVED | B5 |
+| P21 | Sesión administrativa en web sin MFA reciente | Solo preparación de TOTP; no órdenes ni comprobantes | M4 |
+| P22 | Respuesta perdida después de decisión desde la web | Reintento conserva clave/payload y una sola acción financiera | M4 |
+| P23 | Access token vencido con refresh válido | Renovación por Route Handler; cookies protegidas, sin mutación durante render | M4 |
+| P24 | Administrador autorizado sin factor TOTP | Inscribe y verifica su propio factor antes de acceder a órdenes | M4 |
+| P25 | Auth no confirma revocación al cerrar | Se borran cookies locales y se informa revocación remota pendiente | M4 |
+| P26 | Login antes de hidratar o sin JavaScript | Credenciales deshabilitadas antes de hidratar; nunca contraseña por GET/URL | M4 |
 
 ## E. Operaciones y seguridad
 

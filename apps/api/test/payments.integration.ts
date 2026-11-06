@@ -121,6 +121,20 @@ const approval=(c:Fixture)=>({verifiedAmountMinor:c.total,bankPostedAt:new Date(
 const cancellation=()=>({resolutionType:'NOT_PAID_CONFIRMED',reason:'Sin ingreso tras conciliación DEMO documentada.',evidenceReference:`INC-DEMO-${randomUUID()}`,reconciliationConfirmed:true});
 async function counts(c:Fixture){return (await db.query(`SELECT count(*) FILTER(WHERE status='AVAILABLE')::int AS available,
   count(*) FILTER(WHERE status='RESERVED')::int AS reserved,count(*) FILTER(WHERE status='SOLD')::int AS sold FROM sorteos.tickets WHERE raffle_id=$1`,[c.raffle])).rows[0];}
+test('M4 sesión administrativa verifica rol, sesión vigente y MFA sin exponer tokens o datos personales',async()=>{
+  assert.equal((await request('session',{token:null})).status,401);
+  assert.equal((await request('session',{token:await token(outsider)})).status,403);
+  const initial=await request('session',{token:await token(ownerSubject,{aal:'aal1'})});
+  assert.equal(initial.status,200);assert.equal(initial.headers.get('cache-control'),'no-store');
+  assert.deepEqual(await initial.json(),{adminId:ownerId,role:'OWNER',mfaRequired:true,mfaVerifiedUntil:null});
+  const verified=await request('session');assert.equal(verified.status,200);
+  const body=await verified.json() as unknown as {role:string;mfaRequired:boolean;mfaVerifiedUntil:string};
+  assert.equal(body.role,'OWNER');assert.equal(body.mfaRequired,false);assert.ok(Date.parse(body.mfaVerifiedUntil)>Date.now());
+  const revoked=await token(ownerSubject,{aal:'aal1'}),payload=JSON.parse(Buffer.from(revoked.split('.')[1]!,'base64url').toString()) as {session_id:string};
+  await db.query('DELETE FROM auth.sessions WHERE id=$1',[payload.session_id]);
+  assert.equal((await request('session',{token:revoked})).status,401);
+});
+
 test('sin JWT, fuera de allowlist, AAL1, MFA vencido/futuro o sesión de otro usuario no hay acceso financiero',async()=>{
   assert.equal((await request('orders',{token:null})).status,401);
   assert.equal((await request('orders',{token:await token(outsider)})).status,403);

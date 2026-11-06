@@ -63,3 +63,17 @@ permisos de escrituras de orden, conservando B3. Reparar la versión
 revertir B4 primero. Las suites prueban bloqueo con datos, down vacío, permisos
 anteriores y reaplicación. No borrar comprobantes ATTACHED ni histórico para
 forzar este procedimiento; con datos, migración correctiva y backup ensayado.
+
+## Recuperación selectiva B5
+
+`b5-down-empty.sql` requiere todas las tablas de `sorteos` vacías y ejecución
+en una transacción. Retira `admin_actions`, triggers financieros y permisos B5,
+restaurando B4. Preserva las tablas y filas de Auth; elimina exclusivamente las
+políticas `sorteos_b5_session_read` y `sorteos_b5_factor_read` y los permisos
+específicos concedidos al rol dedicado `sorteos_runtime` por B5.
+
+Reparar la versión `20261104035954` con el CLI oficial antes de reaplicar.
+Para recuperar fases anteriores, revertir en orden B5 → B4 → B3 → B2.
+Las pruebas comprueban la conservación de factores Auth y la reaplicación.
+No vaciar órdenes, auditoría o ledger para habilitar el down; con datos usar
+una migración correctiva. Este procedimiento no autoriza operaciones remotas.
