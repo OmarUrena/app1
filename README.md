@@ -6,7 +6,7 @@ El proyecto se desarrolla exclusivamente en `main`, desde esta carpeta. Backend,
 
 ## Administración local — activada el 2026-11-06
 
-Prueba temporal ampliada por el propietario: en este equipo se permite el proceso M1–M4 sin TOTP hasta las **7:01 p. m. del 6 de noviembre de 2026**, hora de Santo Domingo. Login real, compra DEMO con archivo privado, revisión, aprobación y cancelación, conservando permisos y conciliación. [Rifa DEMO](http://127.0.0.1:3000/rifas/demo-prueba-completa/participar), [PDF de prueba](http://127.0.0.1:3000/development/comprobante-demo.pdf) y [operación/verificaciones](docs/DESARROLLO_PRUEBA_COMPLETA.md). No transferir dinero; la excepción vence automáticamente y el perfil se rechaza en producción. El entorno privado no se publica al clonar.
+Prueba temporal ampliada por el propietario: en este equipo se permite el proceso M1–M4 sin TOTP hasta las **8:53 p. m. del 6 de noviembre de 2026**, hora de Santo Domingo. Login real, compra DEMO con archivo privado, revisión, aprobación y cancelación, conservando permisos y conciliación. [Rifa DEMO](http://127.0.0.1:3000/rifas/demo-prueba-completa/participar), [PDF de prueba](http://127.0.0.1:3000/development/comprobante-demo.pdf) y [operación/verificaciones](docs/DESARROLLO_PRUEBA_COMPLETA.md). No transferir dinero; la excepción vence automáticamente y el perfil se rechaza en producción. El entorno privado no se publica al clonar.
 
 Estado posterior del login: corregida la restricción de permisos del esquema Auth alojado mediante migración autorizada y aplicada. La comprobación real del OWNER/sesión bajo el rol runtime pasa sin acceso directo a tablas Auth. Reintentar el login y configurar TOTP en el navegador; ese paso personal sigue por comprobar. Ver [causa, aplicación y evidencia](docs/ADMIN_AUTH_CORRECCION.md).
 
@@ -14,7 +14,9 @@ En esta máquina la web está configurada en live con Auth, las migraciones remo
 
 El login personal requiere comprobación del propietario. Los comprobantes DEMO se guardan realmente en almacenamiento privado local; Supabase Storage privado sigue pendiente para staging/producción. [Operación, pruebas y límites](docs/DESARROLLO_PRUEBA_COMPLETA.md). Los `.env` locales no se publican en Git ni se incluyen al clonar el repositorio. Para volver a iniciar los servicios, usar `npm run dev:api` y `npm run dev:web` en terminales separadas desde esta raíz, evitando duplicar un servidor que ya esté activo.
 
-Si la API informa `startup_failed` con `code=EADDRINUSE`, el puerto indicado ya está ocupado. Conservar una sola instancia: cerrar la API anterior con Ctrl+C en su terminal y volver a iniciar. No cerrar procesos Node ajenos ni cambiar el puerto sin actualizar la URL de la API en la web. El watcher muestra «Waiting for file changes» tras un fallo; Ctrl+C y `npm run dev:api` permiten reintentarlo sin editar archivos.
+Si la API informa `startup_failed` con `code=EADDRINUSE`, el puerto indicado ya está ocupado. Conservar una sola instancia: cerrar la API anterior con Ctrl+C en su terminal y volver a iniciar. No cerrar procesos Node ajenos ni cambiar el puerto sin actualizar la URL de la API en la web. Tras un fallo, el supervisor espera un cambio real de código/configuración; Ctrl+C y `npm run dev:api` permiten reintentarlo sin editar archivos.
+
+El comando de desarrollo de API observa contenido de src, .env y configuraciones, evitando los reinicios por avisos/metadatos de dependencias que interrumpían el login. Tras cambiar paquetes instalados o el supervisor, reiniciar el comando manualmente. Diagnóstico y validación en [ADR 0019](docs/decisions/0019-api-development-content-watcher.md).
 
 ## Proyecto integrado — 2026-11-05
 

@@ -59,6 +59,8 @@ export class DevelopmentWorkflowSetup {
         ON CONFLICT(raffle_id,position) DO NOTHING`,[raffle.id]);
       if(raffle.status==='DRAFT')await db.query(`UPDATE sorteos.raffles SET status='PUBLISHED',publication_approved_by=$2,
         publication_approved_at=now(),approved_rules_version=rules_version WHERE id=$1`,[raffle.id,admin]);
+      else if(raffle.status==='PUBLISHED')await db.query(`UPDATE sorteos.raffles SET ends_at=$2
+        WHERE id=$1 AND (ends_at IS NULL OR ends_at<$2)`,[raffle.id,new Date(until)]);
       await db.query(`INSERT INTO sorteos.audit_logs(actor_kind,actor_id,action,entity,entity_id,request_id)
         VALUES('SYSTEM',$1,'DEVELOPMENT_WORKFLOW_PREPARED','raffles',$2,$3)`,[admin,raffle.id,randomUUID()]);
       await db.query('COMMIT');return {slug,expiresAt:new Date(until).toISOString(),demo:true};

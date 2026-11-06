@@ -149,6 +149,11 @@ test('capacidad de desarrollo permite proceso AAL1 auditado; falla con token, ad
   const setupUrl=localDatabaseUrl(process.env.TEST_DATABASE_URL);setupUrl.pathname=`/${name}`;
   const setup=new DevelopmentWorkflowSetup({...config,databaseUrl:setupUrl.toString(),developmentLocalReceipts:true});
   assert.equal((await setup.prepare()).demo,true);assert.equal((await setup.prepare()).slug,'demo-prueba-completa');
+  const later=new Date(Date.now()+5400000).toISOString();
+  await new DevelopmentWorkflowSetup({...config,databaseUrl:setupUrl.toString(),developmentLocalReceipts:true,
+    developmentMfaToken:randomBytes(32).toString('hex'),developmentMfaUntil:later}).prepare();
+  const demo=(await db.query("SELECT ends_at,ticket_price_minor,total_tickets FROM sorteos.raffles WHERE slug='demo-prueba-completa'")).rows[0];
+  assert.equal(demo.ends_at.toISOString(),later);assert.equal(Number(demo.ticket_price_minor),10000);assert.equal(demo.total_tickets,100);
   try{
     const options={token:jwt,api:devBase};
     const session=await request('session',options);assert.equal(session.status,200);

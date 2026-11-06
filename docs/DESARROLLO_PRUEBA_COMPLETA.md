@@ -8,13 +8,15 @@ La petición del propietario amplía temporalmente el acceso sin TOTP al recorri
 - [Rifa DEMO](http://127.0.0.1:3000/rifas/demo-prueba-completa/participar): cantidad, pre-reserva, formulario y archivo en una sola acción. Precio: RD$100 por número, 100 números, compra de 1 a 20.
 - [PDF de prueba](http://127.0.0.1:3000/development/comprobante-demo.pdf): documento sintético con aviso NO ES UN PAGO. Descargarlo y adjuntarlo al formulario; utilizar datos DEMO y referencia ficticia explícita. No realizar transferencias.
 
-La ventana actual finaliza el **6 de noviembre de 2026 a las 7:01 p. m.**, hora de Santo Domingo (`2026-11-06T23:01:02.000Z`). Después se exige nuevamente MFA y la rifa DEMO deja de aceptar nueva pre-reserva por su fecha de fin. Las órdenes con comprobante no vencen ni liberan números por terminar la prueba; requieren resolución administrativa normal.
+La ventana actual, renovada al corregir los reinicios de API, finaliza el **6 de noviembre de 2026 a las 8:53 p. m.**, hora de Santo Domingo (`2026-11-07T00:53:11.000Z`). Después se exige nuevamente MFA y la rifa DEMO deja de aceptar nueva pre-reserva por su fecha de fin. Las órdenes con comprobante no vencen ni liberan números por terminar la prueba; requieren resolución administrativa normal.
 
 Se creó una única orden mediante el formulario normal de Chromium en 3000, con comprador `CLIENTE DEMO - PRUEBA INTEGRADA`, correo `.invalid`, teléfono reservado 555, PDF de prueba válido y referencia que declara ausencia de transferencia. Resultado: PENDING_REVIEW, reporte REPORTED, cliente `is_demo=true` y un número RESERVED mostrado solo después del commit. El PDF quedó privado. No se aprobó esa orden en remoto en nombre del propietario: queda disponible para que él pruebe las decisiones.
 
 Las comprobaciones fallidas previas al envío exitoso no crearon órdenes ni reportes. Sus pre-reservas técnicas HELD conservan el TTL normal. No se cancelaron órdenes ni se alteró inventario para limpiar la evidencia.
 
 La web y API ya están iniciadas en 3000/3001. No iniciar instancias duplicadas. Los PID/logs de sus lanzadores siguen en `.tmp/admin-login-test-runtime/`. Los `.env`, capacidades y respaldos permanecen ignorados por Git.
+
+Corrección de disponibilidad: el supervisor de API ahora compara contenido y no reinicia por avisos de node_modules o cambios de fechas. Se verificó el PID estable mientras se leían fuentes y respondía ready. Nuevos logs `api-content.stdout.log`/`api-content.stderr.log`; [ADR 0019](decisions/0019-api-development-content-watcher.md). La ventana se renovó junto con la fecha de fin de la rifa DEMO, sin tocar pagos, precio, números o reservas. La capacidad real renovada también pasó la comprobación bajo runtime.
 
 ## Configuración y preparación reproducible
 

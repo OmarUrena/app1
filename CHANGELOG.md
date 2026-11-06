@@ -1,5 +1,11 @@
 # Changelog
 
+## Disponibilidad administrativa durante desarrollo — 2026-11-06
+
+- Sustituido `node --watch` por un supervisor de contenido limitado a fuentes, .env y configuraciones. Los avisos sobre dependencias/metadatos ya no interrumpen el login; una única instancia se reinicia después del cierre del hijo por cambios reales. Se conservó la web en 3000.
+- Verificación real: cuatro ready 200 y lecturas de archivos con PID de API estable. Pruebas base 20/20, financieras 19/19, lint/typecheck y build API/cliente aprobados. Sin cambios de contrato o migraciones.
+- Renovada la prueba completa sin TOTP hasta las 8:53 p. m. del 6 de noviembre, hora dominicana. La preparación NestJS extiende únicamente el fin de la rifa DEMO cuando se renueva, conservando precio, inventario, órdenes y auditoría. Ver ADR 0019.
+
 ## Proceso completo de desarrollo sin TOTP — 2026-11-06
 
 - Ampliación explícita solicitada por el propietario, proyecto no productivo: login, compra con archivo privado y decisiones administrativas bajo capacidad de servidor, administrador/sesión reales y vencimiento. Se mantienen roles, snapshots, reservas, conciliación e idempotencia. La API rechaza la configuración de excepción en staging/production y orígenes externos.

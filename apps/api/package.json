@@ -4,11 +4,11 @@
   "version": "0.1.0",
   "scripts": {
     "dev:prepare": "node -r ts-node/register src/development/prepare-workflow.ts",
-    "dev": "node --watch -r ts-node/register src/main.ts",
+    "dev": "node -r ts-node/register src/dev.ts",
     "start": "node dist/main.js",
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
-    "test": "node -r ts-node/register --test test/foundation.test.ts test/local-tools.test.ts",
+    "test": "node -r ts-node/register --test test/foundation.test.ts test/local-tools.test.ts test/dev-runner.test.ts",
     "test:integration": "node -r ts-node/register --test --test-concurrency=1 test/database.integration.ts test/schema.integration.ts test/catalog.integration.ts test/checkout.integration.ts test/orders.integration.ts test/payments.integration.ts",
     "test:payments": "node -r ts-node/register --test test/payments.integration.ts",
     "test:orders": "node -r ts-node/register --test test/orders.integration.ts",
