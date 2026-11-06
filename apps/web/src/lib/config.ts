@@ -1,5 +1,25 @@
 type EnvironmentInput = Record<string, string | undefined>;
 
+export function localLoginTest(env: EnvironmentInput, now = Date.now()) {
+  const expiry = env.ADMIN_LOGIN_WITHOUT_TOTP_UNTIL;
+  if (!expiry || !["development", "test"].includes(env.NODE_ENV ?? "")
+    || (env.APP_ENV && !["development", "test"].includes(env.APP_ENV))) return undefined;
+  const { appEnv, mode, apiBaseUrl } = readEnvironment(env);
+  if (!["development", "test"].includes(appEnv) || mode !== "live" || !apiBaseUrl || !env.WEB_ORIGIN) return undefined;
+  const expiresAt = Date.parse(expiry);
+  if (!Number.isFinite(expiresAt) || expiresAt <= now) return undefined;
+  try {
+    const web = new URL(env.WEB_ORIGIN), api = new URL(apiBaseUrl);
+    const loopback = (url: URL) => url.protocol === "http:" && ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname);
+    if (!loopback(web) || !loopback(api) || web.origin !== env.WEB_ORIGIN) return undefined;
+  } catch { return undefined; }
+  return { expiresAt };
+}
+
+export function adminLoginDestination(mfaRequired: boolean, env: EnvironmentInput, now = Date.now()) {
+  return !mfaRequired ? "/admin/ordenes" : localLoginTest(env, now) ? "/admin/prueba-acceso" : "/admin/mfa";
+}
+
 export function readAdminEnvironment(env: EnvironmentInput) {
   const { mode, appEnv } = readEnvironment(env);
   if (mode !== "live" || !env.SUPABASE_URL || !env.SUPABASE_PUBLISHABLE_KEY) return undefined;

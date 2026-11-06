@@ -1,5 +1,13 @@
 # Changelog
 
+## Prueba temporal local de login sin TOTP — 2026-11-06
+
+- Por petición del propietario, login/renovación AAL1 conducen a una confirmación de cuenta y sesión reales sin pedir TOTP durante una ventana local. La pantalla MFA ya abierta redirige a esa confirmación al recargar.
+- Configuración de servidor `ADMIN_LOGIN_WITHOUT_TOTP_UNTIL`, vacía por defecto; efectiva solo en development/test, live y web/API HTTP loopback. La configuración privada local vence a las 6:25 p. m. del 6 de noviembre, hora de Santo Domingo. Production/staging, fecha vencida o configuración ausente conservan el flujo habitual.
+- Se conservan Auth, JWT, allowlist y sesión vigente. Órdenes, comprobantes y decisiones financieras siguen protegidos por MFA. No se modificaron factores, opciones Supabase, datos, API ni OpenAPI. Ver ADR 0017.
+- Verificación actual: 45/45 web y 15/15 integración M4, sin omitidas. Incluye login/logout temporal en navegador y rechazo de datos/aprobación AAL1, más la regresión habitual con MFA. Lint, typecheck y build web aprobados; build probado con fecha futura y NODE_ENV production. Logs ignorados `.tmp/admin-login-test-m4.txt` y `.tmp/admin-login-test-build.txt`.
+- Se iniciaron una sola web/API locales tras comprobar puertos libres. Chromium contra 3000 confirmó formulario de prueba operable y protección anónima; API ready 200. No se usó la contraseña personal del propietario. Servidores activos para su prueba, evitando iniciarlos de nuevo mientras sigan escuchando.
+
 ## Aplicación autorizada de la corrección Auth — 2026-11-06
 
 - Autorización explícita del propietario: «Autorizo la migración». Aplicada `20261106051455_admin_auth_session_checks` con el CLI oficial, hashes revisados y respaldo previo; seis versiones confirmadas y dry-run sin pendientes.

@@ -3,12 +3,31 @@ import { beforeAll, expect, test, vi } from "vitest";
 import { OrderActions } from "@/features/admin/order-actions";
 import { AdminClientError, adminFetch, adminMessage } from "@/features/admin/client";
 import { localTransferTime, parseMinor, type AdminOrder } from "@/features/admin/types";
-import { readAdminEnvironment } from "@/lib/config";
+import { readAdminEnvironment, localLoginTest, adminLoginDestination } from "@/lib/config";
 import { LoginForm } from "@/features/admin/auth";
 vi.mock("@/lib/use-hydrated", () => ({ useHydrated: () => false }));
 vi.mock("@/features/admin/client", async importOriginal => ({ ...await importOriginal<typeof import("@/features/admin/client")>(), adminFetch: vi.fn() }));
 const order = { id: "11111111-1111-4111-8111-111111111111", orderCode: "RF-TEST-PRIVATE", status: "PENDING_REVIEW", version: 7, totalMinor: 10025, quantity: 1, duplicateReferenceCount: 0, duplicateReceiptCount: 0 } as AdminOrder;
 beforeAll(() => { HTMLDialogElement.prototype.showModal = function () { this.setAttribute("open", ""); }; HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); }; });
+
+test("prueba de login sin TOTP solo rige en desarrollo loopback hasta su vencimiento", () => {
+  const now = Date.parse("2026-11-06T20:00:00Z");
+  const env = { NODE_ENV: "development", APP_ENV: "development", API_MODE: "live", API_BASE_URL: "http://127.0.0.1:3001/api/v1", WEB_ORIGIN: "http://127.0.0.1:3000", ADMIN_LOGIN_WITHOUT_TOTP_UNTIL: "2026-11-06T22:00:00Z" };
+  expect(localLoginTest(env, now)).toBeDefined();
+  expect(adminLoginDestination(true, env, now)).toBe("/admin/prueba-acceso");
+  expect(adminLoginDestination(false, env, now)).toBe("/admin/ordenes");
+  for (const change of [{ NODE_ENV: "production" }, { APP_ENV: "production" }, { APP_ENV: "staging" }, { API_MODE: "mock" }, { ADMIN_LOGIN_WITHOUT_TOTP_UNTIL: "" }, { ADMIN_LOGIN_WITHOUT_TOTP_UNTIL: "invalid" }, { WEB_ORIGIN: "http://external.example.test" }, { WEB_ORIGIN: "http://127.0.0.1:3000/path" }, { API_BASE_URL: "http://external.example.test/api/v1" }]) {
+    expect(localLoginTest({ ...env, ...change }, now)).toBeUndefined();
+    expect(adminLoginDestination(true, { ...env, ...change }, now)).toBe("/admin/mfa");
+  }
+  expect(adminLoginDestination(true, env, Date.parse(env.ADMIN_LOGIN_WITHOUT_TOTP_UNTIL))).toBe("/admin/mfa");
+});
+
+test("el formulario comunica la prueba temporal sin prometer revisión sin MFA", () => {
+  render(<LoginForm canResume={false} withoutTotp />);
+  expect(screen.getByText(/Prueba temporal de acceso con correo y contraseña/)).toBeVisible();
+  expect(screen.getByLabelText("Contraseña")).toBeDisabled();
+});
 
 test("login diferencia indisponibilidad y red de credenciales incorrectas", () => {
   expect(adminMessage("SERVICE_UNAVAILABLE")).toContain("API administrativa");

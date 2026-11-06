@@ -5,7 +5,7 @@ import { authPost, navigateAdmin } from "./client";
 import { useHydrated } from "@/lib/use-hydrated";
 
 const message = (error: unknown) => error instanceof Error ? error.message : "No pudimos completar la operación.";
-export function LoginForm({ canResume }: { canResume: boolean }) {
+export function LoginForm({ canResume, withoutTotp = false }: { canResume: boolean; withoutTotp?: boolean }) {
   const hydrated = useHydrated();
   const [busy, setBusy] = useState(false), [error, setError] = useState("");
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -19,7 +19,7 @@ export function LoginForm({ canResume }: { canResume: boolean }) {
     try { navigateAdmin((await authPost<{ next: string }>("refresh")).next); }
     catch (error) { setError(message(error)); setBusy(false); }
   }
-  return <Card><h2>Iniciar sesión</h2><p>Solo administradores previamente autorizados. Después se solicitará el código de tu aplicación autenticadora.</p>
+  return <Card><h2>Iniciar sesión</h2><p>{withoutTotp ? "Prueba temporal de acceso con correo y contraseña para administradores previamente autorizados." : "Solo administradores previamente autorizados. Después se solicitará el código de tu aplicación autenticadora."}</p>
     {error && <Alert title="No se pudo acceder" tone="error">{error}</Alert>}
     <form method="post" onSubmit={submit} className="admin-form" aria-busy={busy}>
       <fieldset disabled={busy || !hydrated}><Input id="admin-email" name="email" type="email" label="Correo administrativo" autoComplete="username" maxLength={254} required />

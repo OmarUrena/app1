@@ -1,0 +1,17 @@
+# ADR 0017 — Prueba temporal local de login sin TOTP
+
+Fecha: 2026-11-06. Estado: implementada por petición explícita del propietario para probar el inicio de sesión sin configurar TOTP.
+
+Se habilita un destino de prueba `/admin/prueba-acceso` para sesiones AAL1 autorizadas. El login continúa comprobando correo/contraseña con Supabase Auth y firma, usuario, allowlist activa y sesión vigente con NestJS. La página consulta esa identidad real antes de confirmar el acceso; no simula éxito. Permite comprobar login, renovación y logout sin solicitar TOTP durante la ventana de prueba.
+
+El permiso de prueba se configura únicamente en el servidor web mediante `ADMIN_LOGIN_WITHOUT_TOTP_UNTIL`, una fecha ISO UTC. Solo es efectivo cuando NODE_ENV y APP_ENV son development/test, el modo es live y tanto WEB_ORIGIN como API_BASE_URL usan HTTP loopback. Se rechazan orígenes externos y WEB_ORIGIN con rutas. Vacío, inválido o vencido restaura el flujo MFA habitual. NODE_ENV production lo ignora incluso con fecha futura, independientemente de APP_ENV. No se usan parámetros del navegador para habilitarlo.
+
+La configuración privada de este equipo habilita la ventana hasta `2026-11-06T22:25:10.000Z` (6:25 p. m. del 6 de noviembre, America/Santo_Domingo). Se preservó respaldo local ignorado del entorno anterior. La hora se consulta en cada petición; no hace falta un cron para vencer la excepción. Para finalizar antes, eliminar la variable o dejarla vacía y reiniciar/recargar la web según el entorno.
+
+Esta autorización se limita a probar el inicio de sesión. El destino temporal comunica que órdenes, comprobantes y revisión de pagos requieren dos pasos. No cambia `mfaRequired` en la API, las cookies no conceden privilegios adicionales y los guardas financieros/PostgreSQL permanecen intactos. `/admin/mfa` conduce a la confirmación temporal durante la ventana para permitir refrescar la pantalla ya abierta. Los administradores con MFA vigente mantienen su destino normal de órdenes.
+
+No se eliminan factores, se modifican ajustes Supabase ni se ejecutan migraciones. No hay claves nuevas ni consultas de credenciales personales. La configuración de ejemplo queda vacía; el vencimiento local no se activa al clonar. Al expirar, el destino temporal exige nuevamente el flujo normal, sin borrar el historial ni crear un mecanismo de recuperación de cuenta.
+
+Verificación actual: 45/45 pruebas web y 15/15 integración M4 sin omitidas; lint, typecheck y build web aprobados. Comandos: `npm run lint --workspace @sorteos/web`, `npm run test --workspace @sorteos/web`, `npm run typecheck --workspace @sorteos/web`, build web en production con la variable futura presente, y `scripts/test-backend-local.ps1 -PasswordAuthentication -Port 54346 -TestScript test:m4`. El PostgreSQL temporal se detuvo al terminar. Los logs permanecen ignorados en `.tmp/admin-login-test-m4.txt` y `.tmp/admin-login-test-build.txt`.
+
+El caso integrado adicional usa SDK Auth, JWT/JWKS, NestJS, PostgreSQL y navegador con proveedores locales: login a la confirmación real, MFA financiero obligatorio, bloqueo de una aprobación AAL1 y cierre de sesión. La regresión normal se ejecuta sin excepción temporal. Chromium contra la instancia real de 3000 confirmó redirección anónima al login y formulario temporal operable; API ready 200. Los servicios estaban apagados y se iniciaron tras verificar los puertos libres; sus identificadores/logs están en `.tmp/admin-login-test-runtime/`, sin crear ramas ni otro worktree. No equivale a haber introducido la contraseña personal del propietario.

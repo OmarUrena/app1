@@ -6,6 +6,8 @@ Consolidación documental: 2026-11-05. Fuente única de estado del frontend; re�
 
 ## M4
 
+Prueba temporal de login solicitada el 2026-11-06: acceso AAL1 a confirmación protegida sin TOTP, limitado a desarrollo local y con vencimiento automático; datos/acciones financieras conservan MFA. Ver [ADR 0017](decisions/0017-local-login-trial.md). Verificación actual: 45/45 web, 15/15 integración M4 y lint/typecheck/build web aprobados. Sin cambio remoto de Auth ni uso de credenciales personales del propietario.
+
 Diagnóstico posterior del login, 2026-11-06: el mensaje genérico ocultaba un 503 por permisos efectivos de la sesión Auth. Se distinguen indisponibilidad, error interno y red; la corrección de sesión fue autorizada y aplicada, con verificación real bajo runtime aprobada. No se declara login/TOTP personal completado: corresponde reintentarlo en el navegador. Ver [corrección de acceso](ADMIN_AUTH_CORRECCION.md).
 
 Activación operativa 2026-11-06: web local en modo live con Auth configurado, API en 3001 y B3–B5 aplicadas en Supabase con permiso del propietario. Formulario habilitado y protección anónima verificados en Chromium contra la instancia de 3000. El login personal y la inscripción TOTP real del OWNER aún deben comprobarse; Storage real sigue pendiente. Ver [detalle de activación](MIGRACIONES_SUPABASE_B3_B5.md). La evidencia de integración con proveedores locales que sigue conserva su alcance original.

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AdminError, authClient, failure, identity, jsonBody, privateHeaders, restoredAuth, sameOrigin, saveSession, tokens } from "@/features/admin/server";
+import { adminLoginDestination } from "@/lib/config";
 
 // Additional per-process ceiling; Supabase Auth enforces its own provider limits.
 let attempts = 0, windowStart = 0;
@@ -36,14 +37,14 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
       if (error || !data.session) throw new AdminError(error?.status === 429 ? "RATE_LIMITED" : error?.status && error.status >= 500 ? "AUTH_UNAVAILABLE" : "INVALID_CREDENTIALS", error?.status === 429 ? 429 : error?.status && error.status >= 500 ? 503 : 401);
       let admin;
       try { admin = await identity(data.session.access_token); } catch (error) { await client.auth.signOut({ scope: "local" }); throw error; }
-      const response = NextResponse.json({ next: admin.mfaRequired ? "/admin/mfa" : "/admin/ordenes" }, { headers: privateHeaders });
+      const response = NextResponse.json({ next: adminLoginDestination(admin.mfaRequired, process.env) }, { headers: privateHeaders });
       saveSession(response, data.session, true); return response;
     }
     const { client, session, changed } = await restoredAuth();
     await identity(session.access_token); // AAL1 allowlist/session check before exposing factor setup.
     let payload: object = {};
     let current = session;
-    if (action === "refresh") payload = { next: (await identity(session.access_token)).mfaRequired ? "/admin/mfa" : "/admin/ordenes" };
+    if (action === "refresh") payload = { next: adminLoginDestination((await identity(session.access_token)).mfaRequired, process.env) };
     if (action === "factors" || action === "enroll") {
       const { data, error } = await client.auth.mfa.listFactors();
       if (error) throw new AdminError("AUTH_UNAVAILABLE", 503);

@@ -21,7 +21,7 @@ before(async()=>{
   m4Log=fs.openSync(path.join(m4Workspace,'.tmp/m4-next.log'),'w');
   m4Web=require('node:child_process').spawn(process.execPath,[m4WebRequire.resolve('next/dist/bin/next'),'dev','--webpack','--hostname','127.0.0.1','--port','3115'],{
     cwd:isolated,windowsHide:true,stdio:['ignore',m4Log,m4Log],
-    env:{...process.env,NODE_ENV:'development',APP_ENV:'test',API_MODE:'live',API_BASE_URL:base+'/api/v1',SUPABASE_URL:issuer,SUPABASE_PUBLISHABLE_KEY:'sb_publishable_b5_fixture',WEB_ORIGIN:origin,NEXT_TELEMETRY_DISABLED:'1'}
+    env:{...process.env,NODE_ENV:'development',APP_ENV:'test',API_MODE:'live',API_BASE_URL:base+'/api/v1',SUPABASE_URL:issuer,SUPABASE_PUBLISHABLE_KEY:'sb_publishable_b5_fixture',WEB_ORIGIN:origin,NEXT_TELEMETRY_DISABLED:'1',ADMIN_LOGIN_WITHOUT_TOTP_UNTIL:''}
   });
   const deadline=Date.now()+120000;
   while(Date.now()<deadline){
@@ -157,6 +157,42 @@ test('M4: web, API, PostgreSQL, JWT/JWKS y adaptadores locales Auth/Storage', {t
         // Simulate a refresh response that was already in flight before logout.
         await isolated.addCookies(previous);assert.equal((await isolated.request.get(origin+'/admin/api/orders')).status(),401);
       }finally{m4LogoutFailure=false;}
+    });
+    await t.test('prueba local sin TOTP valida login y logout reales sin abrir datos ni decisiones financieras',async()=>{
+      const fs=require('node:fs'),path=require('node:path');
+      const isolated=path.join(m4Workspace,'.tmp','m4-login-test-'+process.pid),original=path.join(m4Workspace,'apps/web');
+      fs.mkdirSync(isolated,{recursive:true});
+      for(const file of ['package.json','next.config.ts','tsconfig.json','postcss.config.mjs'])fs.copyFileSync(path.join(original,file),path.join(isolated,file));
+      fs.symlinkSync(path.join(original,'node_modules'),path.join(isolated,'node_modules'),process.platform==='win32'?'junction':'dir');
+      for(const directory of ['src','public'])fs.cpSync(path.join(original,directory),path.join(isolated,directory),{recursive:true});
+      const previewOrigin='http://127.0.0.1:3116',log=fs.openSync(path.join(m4Workspace,'.tmp/m4-login-test-next.log'),'w');
+      const child=require('node:child_process').spawn(process.execPath,[m4WebRequire.resolve('next/dist/bin/next'),'dev','--webpack','--hostname','127.0.0.1','--port','3116'],{
+        cwd:isolated,windowsHide:true,stdio:['ignore',log,log],env:{...process.env,NODE_ENV:'development',APP_ENV:'test',API_MODE:'live',API_BASE_URL:base+'/api/v1',SUPABASE_URL:issuer,SUPABASE_PUBLISHABLE_KEY:'sb_publishable_b5_fixture',WEB_ORIGIN:previewOrigin,NEXT_TELEMETRY_DISABLED:'1',ADMIN_LOGIN_WITHOUT_TOTP_UNTIL:new Date(Date.now()+3600000).toISOString()}
+      });
+      try{
+        const deadline=Date.now()+120000;let ready=false;
+        while(Date.now()<deadline){
+          if(child.exitCode!==null)throw Error('Next de prueba de login no pudo iniciar');
+          try{if((await globalThis.fetch(previewOrigin+'/admin/login',{signal:AbortSignal.timeout(5000)})).ok){ready=true;break;}}catch{}
+          await new Promise(r=>setTimeout(r,500));
+        }
+        assert.equal(ready,true,'Next de prueba no inició a tiempo');
+        const previewContext=await browser.newContext();contexts.push(previewContext);const view=await previewContext.newPage();
+        await view.goto(previewOrigin+'/admin/prueba-acceso');await view.waitForURL('**/admin/login');
+        await view.getByText(/Prueba temporal de acceso con correo y contraseña/).waitFor();
+        await view.getByLabel('Correo administrativo').fill('owner@example.invalid');await view.getByLabel('Contraseña',{exact:true}).fill(m4Password);
+        await view.getByRole('button',{name:'Iniciar sesión',exact:true}).click();await view.waitForURL('**/admin/prueba-acceso');
+        await view.getByRole('heading',{name:'Inicio de sesión verificado'}).waitFor();
+        assert.equal((await previewContext.request.get(previewOrigin+'/admin/api/orders')).status(),403);
+        const decision=await previewContext.request.post(previewOrigin+'/admin/api/orders/'+randomUUID()+'/approve',{headers:{Origin:previewOrigin,'Idempotency-Key':randomUUID()},data:{expectedVersion:1}});
+        assert.equal(decision.status(),403);assert.equal((await decision.json()).error.code,'MFA_REQUIRED');
+        await view.goto(previewOrigin+'/admin/mfa');await view.waitForURL('**/admin/prueba-acceso');
+        await view.getByRole('button',{name:'Cerrar sesión',exact:true}).click();await view.waitForURL('**/admin/login');
+        await view.goto(previewOrigin+'/admin/prueba-acceso');await view.waitForURL('**/admin/login');
+      }finally{
+        if(child.exitCode===null){child.kill();await Promise.race([new Promise(r=>child.once('exit',r)),new Promise(r=>setTimeout(r,5000))]);}
+        fs.closeSync(log);
+      }
     });
     await t.test('login y revisión se ejecutan también en Firefox y WebKit móvil',async()=>{
       for(const [engine,label]of [[firefox,'firefox'],[webkit,'webkit-mobile']]){

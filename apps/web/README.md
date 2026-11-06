@@ -15,6 +15,7 @@ El script `scripts/start-web.ps1` usa API_MODE=live, APP_ENV=development y API_B
 | /orden/recuperar | Recuperación idempotente de envíos ambiguos de la pestaña |
 | /ayuda y /privacidad | Ayuda y tratamiento de datos |
 | /admin/login | Login real, renovación de sesión existente y acceso exclusivo por allowlist |
+| /admin/prueba-acceso | Confirmación protegida de login sin TOTP durante una ventana local autorizada; sin datos ni acciones financieras |
 | /admin/mfa | Verificación TOTP reciente e inscripción del primer autenticador |
 | /admin/ordenes | Bandeja con filtros y paginación, sin PII en lista |
 | /admin/ordenes/[id] | Detalle protegido, comprobante privado, historial y decisiones de conciliación |
@@ -30,6 +31,8 @@ Para M4 configurar también SUPABASE_URL (HTTPS) y SUPABASE_PUBLISHABLE_KEY (sb_
 Si la resolución dual-stack local retrasa Auth, configurar `HTTP_DNS_FAMILY=4` en los archivos privados de ambos servidores y reiniciarlos. El valor habitual es `auto`; también se admite `6`. La opción solo selecciona familia de conexión HTTP, con TLS verificado y los mismos tiempos de espera. Ver [ADR 0014](../../docs/decisions/0014-server-http-address-family.md).
 
 Login envía credenciales al servidor web; los tokens quedan en cookies HttpOnly/Strict de alcance /admin, Secure con HTTPS. La aplicación solicita TOTP y permite configurar el primer autenticador manualmente si falta. Requiere MFA en los últimos 15 minutos. Si el access token vence al abrir una página, volver al login y usar «Continuar sesión existente»; la renovación ocurre en Route Handler, no durante render. Logout revoca la sesión actual y borra cookies; un fallo de revocación se informa. No enviar contraseñas/códigos por chat.
+
+Para una prueba local autorizada del login, `ADMIN_LOGIN_WITHOUT_TOTP_UNTIL` admite una fecha ISO UTC futura en el servidor web. Solo actúa en development/test con web y API HTTP loopback y modo live. Muestra `/admin/prueba-acceso` después de verificar la cuenta y sesión reales, sin habilitar consulta/decisiones de órdenes ni comprobantes. Vacío o vencido restaura TOTP; production/staging no lo habilitan. La configuración de ejemplo está vacía. No cambia factores ni opciones de Supabase. Ver [ADR 0017](../../docs/decisions/0017-local-login-trial.md).
 
 Logout mantiene además una marca HttpOnly sin credenciales que impide reabrir la sesión con cookies de respuestas pendientes; solo un login nuevo la elimina. Si Auth falla, el acceso local queda cerrado y el login muestra «Revocación remota pendiente», para seguir el procedimiento de seguridad del propietario. Las lecturas normales no renuevan ni reescriben credenciales.
 
