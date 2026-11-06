@@ -1,6 +1,6 @@
 # ADR 0016 — Comprobación privada de sesiones en Supabase alojado
 
-Fecha: 2026-11-06. Estado: implementación local probada; aplicación remota pendiente de aprobación explícita.
+Fecha: 2026-11-06. Estado: implementación local probada y migración remota aplicada tras autorización explícita «Autorizo la migración». Comprobación real bajo el rol runtime aprobada; login/TOTP personal pendiente de reintento del propietario.
 
 Los intentos reales del propietario llegaron a Auth con respuesta 200 y pasaron la allowlist de NestJS. Después falló la consulta de `auth.sessions` con SQLSTATE 42501. La inspección remota confirmó `has_schema_privilege('sorteos_runtime','auth','USAGE')=false`: tener SELECT sobre nueve columnas no garantizaba poder consultarlas. La comprobación anterior de la activación fue incompleta respecto al acceso efectivo del rol.
 
@@ -16,4 +16,4 @@ La corrección es una migración nueva creada con el CLI, `20261106051455_admin_
 
 Se añaden mensajes web específicos para indisponibilidad API, error interno y conexión. No se muestran diagnósticos SQL ni datos de credenciales al usuario. No cambia el contrato HTTP ni el cliente generado.
 
-Referencia: [Supabase: permisos de roles personalizados sobre Auth](https://supabase.com/kb/troubleshooting/permission-errors-when-granting-custom-roles-access-to-the-auth-schema-9e32e7), en especial la frontera privada de lectura de sesiones; [sesiones y revocación](https://supabase.com/docs/guides/auth/sessions). Evidencia operativa y autorización pendiente en [corrección de acceso](../ADMIN_AUTH_CORRECCION.md).
+Referencia: [Supabase: permisos de roles personalizados sobre Auth](https://supabase.com/kb/troubleshooting/permission-errors-when-granting-custom-roles-access-to-the-auth-schema-9e32e7), en especial la frontera privada de lectura de sesiones; [sesiones y revocación](https://supabase.com/docs/guides/auth/sessions). Evidencia operativa y autorización registrada en [corrección de acceso](../ADMIN_AUTH_CORRECCION.md).

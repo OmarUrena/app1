@@ -46,7 +46,7 @@ Verificaciones del cambio de transporte: `npm test` 14/14; runner PostgreSQL loc
 
 ## Límites pendientes
 
-Diagnóstico posterior del login real: los GRANT SELECT de metadatos no bastaron; el rol carece de USAGE sobre el esquema Auth administrado. La afirmación anterior de acceso operativo no verificó este permiso efectivo. B1–B5 siguen aplicadas, pero la comprobación de sesión necesita una migración correctiva adicional, preparada y bloqueada por revisión automática hasta aprobación explícita. Ver [corrección de acceso](ADMIN_AUTH_CORRECCION.md). No se declara acceso personal habilitado.
+Diagnóstico posterior del login real: los GRANT SELECT de metadatos no bastaron; el rol carecía de USAGE sobre el esquema Auth administrado. La afirmación anterior de acceso operativo no verificó este permiso efectivo. El propietario autorizó explícitamente la migración correctiva adicional, ya aplicada: el helper privado valida la sesión bajo runtime y retira SELECT directo de Auth. B1–B5 se conservan y el historial contiene seis migraciones sin pendientes. Ver [corrección de acceso](ADMIN_AUTH_CORRECCION.md). Login/TOTP personal pendiente de reintento, sin declarar ese paso realizado por las pruebas.
 
 Corrección posterior del arranque, 2026-11-06: se retiró la API compilada iniciada en segundo plano al comprobar que impedía al watcher del propietario ocupar 3001. La instancia de desarrollo quedó activa, con ready 200 y DB up. Los fallos de escucha ahora muestran un diagnóstico seguro y cierran recursos; pruebas y decisión en [ADR 0015](decisions/0015-api-startup-diagnostics.md). No iniciar una segunda API mientras el watcher siga activo.
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## Aplicación autorizada de la corrección Auth — 2026-11-06
+
+- Autorización explícita del propietario: «Autorizo la migración». Aplicada `20261106051455_admin_auth_session_checks` con el CLI oficial, hashes revisados y respaldo previo; seis versiones confirmadas y dry-run sin pendientes.
+- Comprobación real en transacción de solo lectura bajo `sorteos_runtime`: sesión OWNER válida, contextos ausentes/incorrectos rechazados y acceso directo a Auth bloqueado. Sin ampliar roles, modificar credenciales ni registrar secretos. Cero órdenes/holds/reportes y 16 tablas RLS conservadas.
+- API ready 200 con DB up, login web 200 y ruta administrativa anónima 401. Asesores sin avisos nuevos; pruebas locales de la corrección conservan la evidencia de la entrada anterior. Reintento personal de login/TOTP y Storage real pendientes. Ver docs/ADMIN_AUTH_CORRECCION.md.
+
 ## Corrección del login con Auth alojado — 2026-11-06
 
 - Identificado el fallo posterior a contraseña válida: falta de USAGE sobre el esquema Auth para el rol runtime. La verificación anterior de columnas no comprobaba ese acceso efectivo.
