@@ -1,5 +1,11 @@
 # Changelog
 
+## Diagnóstico del arranque API — 2026-11-06
+
+- Retirada la instancia local de fondo que ocupaba 3001 e impedía iniciar el watcher del propietario. Verificados ready 200 con DB up y login web 200 con la instancia de desarrollo.
+- `startup_failed` distingue puerto ocupado, permisos y dirección no disponible mediante códigos/mensajes fijos, sin registrar excepciones arbitrarias. Un fallo al escuchar cierra recursos de la aplicación antes de terminar con salida 1.
+- `npm test`: 16/16, incluida reproducción real de EADDRINUSE en un proceso hijo. Lint, typecheck API/cliente y build API/cliente aprobados. Sin cambios de datos ni contrato; ver ADR 0015.
+
 ## Activación administrativa local con Supabase — 2026-11-06
 
 - Aplicadas B3/B4/B5 con autorización explícita, CLI oficial e historial original. B1/B2 y datos administrativos conservados; sin seeds ni nuevas órdenes.

@@ -11,8 +11,48 @@ import { createDocument } from '../src/openapi';
 import { createServer } from 'node:http';
 import { AddressInfo } from 'node:net';
 import { fetchFromServer } from '../src/common/server-fetch';
+import { startupFailure } from '../src/common/startup-error';
+import { spawnSync } from 'node:child_process';
+import { resolve } from 'node:path';
 
 const config = parseConfig({ NODE_ENV: 'test', LOG_LEVEL: 'silent', SWAGGER_ENABLED: 'true' });
+
+test('fallos de arranque informan causas conocidas sin reproducir secretos de excepciones', () => {
+  for (const code of ['EADDRINUSE', 'EACCES', 'EADDRNOTAVAIL']) {
+    const result = startupFailure({ code, message: 'SECRETO_DE_PRUEBA', password: 'SECRET' }, 3001);
+    assert.equal(result.code, code);
+    assert.equal(result.port, 3001);
+    assert.ok(!JSON.stringify(result).includes('SECRET'));
+  }
+  for (const error of [null, 'SECRET', new Error('SECRET'), { code: 'SECRET' }, { code: '__proto__' }]) {
+    const result = startupFailure(error);
+    assert.equal(result.code, 'STARTUP_FAILED');
+    assert.ok(!JSON.stringify(result).includes('SECRET'));
+    assert.ok(!('port' in result));
+  }
+});
+
+test('proceso API con puerto ocupado termina con diagnostico EADDRINUSE y salida 1', async () => {
+  const occupied = createServer();
+  await new Promise<void>(resolve => occupied.listen(0, '127.0.0.1', resolve));
+  const port = (occupied.address() as AddressInfo).port;
+  try {
+    const child = spawnSync(process.execPath, ['-r', 'ts-node/register', 'src/main.ts'], {
+      cwd: resolve(__dirname, '..'), encoding: 'utf8', timeout: 20000, windowsHide: true,
+      env: { ...process.env, NODE_ENV: 'test', PORT: String(port), HOST: '127.0.0.1',
+        LOG_LEVEL: 'silent', DATABASE_URL: '', SUPABASE_URL: '', SUPABASE_STORAGE_KEY: '',
+        SUPABASE_PUBLISHABLE_KEY: '', SWAGGER_ENABLED: 'false' },
+    });
+    assert.ifError(child.error);
+    assert.equal(child.status, 1);
+    const failure = JSON.parse(child.stderr.trim());
+    assert.equal(failure.event, 'startup_failed');
+    assert.equal(failure.code, 'EADDRINUSE');
+    assert.equal(failure.port, port);
+  } finally {
+    await new Promise<void>(resolve => occupied.close(() => resolve()));
+  }
+});
 
 test('HTTP saliente permite elegir IPv4 sin omitir errores de red ni cancelacion',async()=>{
   const previous=process.env.HTTP_DNS_FAMILY;

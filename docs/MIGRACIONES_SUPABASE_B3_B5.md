@@ -46,6 +46,8 @@ Verificaciones del cambio de transporte: `npm test` 14/14; runner PostgreSQL loc
 
 ## Límites pendientes
 
+Corrección posterior del arranque, 2026-11-06: se retiró la API compilada iniciada en segundo plano al comprobar que impedía al watcher del propietario ocupar 3001. La instancia de desarrollo quedó activa, con ready 200 y DB up. Los fallos de escucha ahora muestran un diagnóstico seguro y cierran recursos; pruebas y decisión en [ADR 0015](decisions/0015-api-startup-diagnostics.md). No iniciar una segunda API mientras el watcher siga activo.
+
 No se ha verificado el login personal ni la inscripción TOTP real del OWNER. No hay órdenes para revisar. Falta configurar/verificar la clave de Storage de servidor y el bucket privado antes de probar creación de órdenes o acceso a comprobantes; esta autorización no creó buckets ni publicó datos bancarios.
 
 El asesor posterior ya no reporta las seis tablas sin políticas que correspondían al cierre B2. Conserva tres avisos previos: permisos de `public.rls_auto_enable` para [anon](https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable) y [authenticated](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable), y [protección de contraseñas filtradas desactivada](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection). No se alteraron esas opciones fuera del alcance aprobado.

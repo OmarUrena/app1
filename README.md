@@ -10,6 +10,8 @@ En esta máquina la web está configurada en live con Auth, las migraciones remo
 
 El login personal requiere comprobación del propietario; la creación de órdenes/comprobantes requiere todavía configurar Storage privado real. [Operación, pruebas y límites](docs/MIGRACIONES_SUPABASE_B3_B5.md). Los `.env` locales no se publican en Git ni se incluyen al clonar el repositorio. Para volver a iniciar los servicios, usar `npm run dev:api` y `npm run dev:web` en terminales separadas desde esta raíz, evitando duplicar un servidor que ya esté activo.
 
+Si la API informa `startup_failed` con `code=EADDRINUSE`, el puerto indicado ya está ocupado. Conservar una sola instancia: cerrar la API anterior con Ctrl+C en su terminal y volver a iniciar. No cerrar procesos Node ajenos ni cambiar el puerto sin actualizar la URL de la API en la web. El watcher muestra «Waiting for file changes» tras un fallo; Ctrl+C y `npm run dev:api` permiten reintentarlo sin editar archivos.
+
 ## Proyecto integrado — 2026-11-05
 
 M4 añade administración web con login real, TOTP, bandeja, visor privado y decisiones de revisión sobre B5. Configurar las variables Auth de servidor de [apps/web/.env.example](apps/web/.env.example) y usar `/admin/login`. Guía operativa y prueba local integrada en [README web](apps/web/README.md); resultados y limitaciones en [estado frontend](docs/ESTADO_FRONTEND.md#m4). No hay despliegue ni cambios remotos por esta entrega.
