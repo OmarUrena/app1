@@ -20,11 +20,11 @@ export class AdminSessionController {
     res.setHeader('Cache-Control','no-store');
     // Allow AAL1 only for MFA setup. Verify session existence without reading Auth secrets.
     await this.db.transaction(async c=>{
-      await c.query("SELECT set_config('app.auth_user_id',$1,true),set_config('app.auth_session_id',$2,true)",
-        [req.admin.authUserId,req.adminProof.sessionId]);
-      const session=await c.query(`SELECT id FROM auth.sessions WHERE id=$1 AND user_id=$2
-        AND (not_after IS NULL OR not_after>now())`,[req.adminProof.sessionId,req.admin.authUserId]);
-      if(!session.rowCount)throw new UnauthorizedException({code:'SESSION_REVOKED'});
+      await c.query(`SELECT set_config('app.auth_user_id',$1,true),set_config('app.auth_session_id',$2,true),
+        set_config('app.actor_kind','ADMIN',true),set_config('app.actor_id',$3,true)`,
+        [req.admin.authUserId,req.adminProof.sessionId,req.admin.id]);
+      const session=await c.query<{valid:boolean}>('SELECT sorteos.admin_auth_session_valid(false) AS valid');
+      if(!session.rows[0]?.valid)throw new UnauthorizedException({code:'SESSION_REVOKED'});
     });
     const proof=req.adminProof,now=Math.floor(Date.now()/1000);
     const mfaRequired=proof.aal!=='aal2'||proof.mfaAt<now-900||proof.mfaAt>now+5;

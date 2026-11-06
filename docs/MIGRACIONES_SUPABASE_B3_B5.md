@@ -46,6 +46,8 @@ Verificaciones del cambio de transporte: `npm test` 14/14; runner PostgreSQL loc
 
 ## Límites pendientes
 
+Diagnóstico posterior del login real: los GRANT SELECT de metadatos no bastaron; el rol carece de USAGE sobre el esquema Auth administrado. La afirmación anterior de acceso operativo no verificó este permiso efectivo. B1–B5 siguen aplicadas, pero la comprobación de sesión necesita una migración correctiva adicional, preparada y bloqueada por revisión automática hasta aprobación explícita. Ver [corrección de acceso](ADMIN_AUTH_CORRECCION.md). No se declara acceso personal habilitado.
+
 Corrección posterior del arranque, 2026-11-06: se retiró la API compilada iniciada en segundo plano al comprobar que impedía al watcher del propietario ocupar 3001. La instancia de desarrollo quedó activa, con ready 200 y DB up. Los fallos de escucha ahora muestran un diagnóstico seguro y cierran recursos; pruebas y decisión en [ADR 0015](decisions/0015-api-startup-diagnostics.md). No iniciar una segunda API mientras el watcher siga activo.
 
 No se ha verificado el login personal ni la inscripción TOTP real del OWNER. No hay órdenes para revisar. Falta configurar/verificar la clave de Storage de servidor y el bucket privado antes de probar creación de órdenes o acceso a comprobantes; esta autorización no creó buckets ni publicó datos bancarios.

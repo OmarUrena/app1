@@ -66,6 +66,8 @@ forzar este procedimiento; con datos, migración correctiva y backup ensayado.
 
 ## Recuperación selectiva B5
 
+La corrección `admin_auth_session_checks` de 2026-11-06 se retira junto con B5 únicamente en la recuperación local vacía: el script elimina también el helper privado y el runner repara primero esa versión y luego B5 mediante el CLI. Reaplicar incorpora ambas en orden. Con datos o en Supabase alojado se exige migración correctiva hacia adelante; la ruta anterior de acceso directo a Auth no es operativa en ese entorno. No usar el down para resolver el login del propietario.
+
 `b5-down-empty.sql` requiere todas las tablas de `sorteos` vacías y ejecución
 en una transacción. Retira `admin_actions`, triggers financieros y permisos B5,
 restaurando B4. Preserva las tablas y filas de Auth; elimina exclusivamente las

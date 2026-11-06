@@ -23,5 +23,7 @@ export async function revertEmptyB5(client:Client,url:string) {
     await client.query(await readFile(resolve(workspaceRoot,'infra/recovery/b5-down-empty.sql'),'utf8'));
     await client.query('COMMIT');
   }catch(error){await client.query('ROLLBACK');throw error;}
+  const correction=await client.query<{version:string}>("SELECT version FROM supabase_migrations.schema_migrations WHERE name='admin_auth_session_checks'");
+  if(correction.rows[0])revertLocalMigrationHistory(url,correction.rows[0].version);
   revertLocalMigrationHistory(url,history.rows[0].version);
 }

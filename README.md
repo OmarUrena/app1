@@ -6,6 +6,8 @@ El proyecto se desarrolla exclusivamente en `main`, desde esta carpeta. Backend,
 
 ## Administración local — activada el 2026-11-06
 
+Estado posterior del login: se detectó una restricción de permisos del esquema Auth alojado. La corrección está preparada y su migración remota espera aprobación explícita; mientras tanto el login no puede completar la comprobación de sesión. Ver [causa, corrección y autorización pendiente](docs/ADMIN_AUTH_CORRECCION.md).
+
 En esta máquina la web está configurada en live con Auth, las migraciones remotas B1–B5 están aplicadas y la API local responde en 3001. Abrir http://127.0.0.1:3000/admin/login con el usuario propietario previamente autorizado. En la primera entrada, configurar el autenticador y verificar el código TOTP. Actualmente no hay órdenes para revisar. No introducir contraseñas o códigos en el chat.
 
 El login personal requiere comprobación del propietario; la creación de órdenes/comprobantes requiere todavía configurar Storage privado real. [Operación, pruebas y límites](docs/MIGRACIONES_SUPABASE_B3_B5.md). Los `.env` locales no se publican en Git ni se incluyen al clonar el repositorio. Para volver a iniciar los servicios, usar `npm run dev:api` y `npm run dev:web` en terminales separadas desde esta raíz, evitando duplicar un servidor que ya esté activo.

@@ -18,7 +18,7 @@ Se trabaja desde la raíz actual y exclusivamente en `main`, por instrucción ex
 | M1 — Catálogo | B1 + B2 + F1 + F2 | Esquema íntegro, API administrable y catálogo/detalle públicos conectados | Flujo público local comprobado en la integración M4; evidencia histórica conservada |
 | M2 — Cupo temporal | B3 + F3 | Cantidad, precio servidor, hold protegido y contador sin números | Flujo local comprobado en M4, sin números antes de crear orden |
 | M3 — Orden con comprobante | B4 + F4 | Envío único, archivo privado, números reservados y confirmación protegida | Flujo local comprobado en M4 con adaptador privado Storage de pruebas |
-| M4 — Revisión administrativa | B5 + F5 | Login real, MFA, bandeja, comprobante y conciliación desde la web | Implementado y verificado localmente; B3–B5 remotas aplicadas 2026-11-06. Login/TOTP del OWNER y Storage reales por comprobar |
+| M4 — Revisión administrativa | B5 + F5 | Login real, MFA, bandeja, comprobante y conciliación desde la web | Verificado localmente; B3–B5 remotas aplicadas. Corrección posterior de sesión Auth preparada, con migración remota pendiente de aprobación; Storage real pendiente |
 | M5 — Operación diaria | B6 + F6; reutiliza CRUD B2 | Editor de rifas, cierre, indicadores, CSV y consulta protegida | Siguiente hito propuesto, sin implementar |
 | M6 — Robustez conjunta | B7 + F7 | Seguridad, concurrencia, resiliencia, accesibilidad y rendimiento medidos | Pendiente; los controles básicos se aplican desde cada hito |
 | M7 — Staging y salida controlada | B8 + F8 | Entorno aislado, ensayo completo, manuales y revisión de lanzamiento | Pendiente; despliegue y ventas reales requieren autorización |

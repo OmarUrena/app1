@@ -1,5 +1,12 @@
 # Changelog
 
+## Corrección del login con Auth alojado — 2026-11-06
+
+- Identificado el fallo posterior a contraseña válida: falta de USAGE sobre el esquema Auth para el rol runtime. La verificación anterior de columnas no comprobaba ese acceso efectivo.
+- Preparada migración nueva de comprobación booleana privada de sesión/MFA, con ejecución restringida; se retira SELECT directo Auth del runtime y se conservan guardas financieros y revocación. Los cinco SQL aplicados permanecen intactos. Ver ADR 0016.
+- Mensajes web específicos para indisponibilidad de API, fallo interno y red. Regresión: 18/18 financieras, 14/14 integración M4 y 43/43 web; lint/typecheck y builds aprobados, contrato/cliente sin cambios.
+- Respaldo remoto y dry-run completados. Aplicación rechazada por revisión automática por falta de aprobación explícita para la nueva migración remota; login remoto aún bloqueado. Detalle en docs/ADMIN_AUTH_CORRECCION.md.
+
 ## Diagnóstico del arranque API — 2026-11-06
 
 - Retirada la instancia local de fondo que ocupaba 3001 e impedía iniciar el watcher del propietario. Verificados ready 200 con DB up y login web 200 con la instancia de desarrollo.

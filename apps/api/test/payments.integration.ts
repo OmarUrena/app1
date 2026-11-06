@@ -49,6 +49,8 @@ before(async()=>{
   const url=localDatabaseUrl(process.env.TEST_DATABASE_URL);root=new Client({connectionString:url.toString()});await root.connect();connected=true;
   await root.query(`CREATE DATABASE ${name}`);created=true;url.pathname=`/${name}`;
   db=new Client({connectionString:url.toString()});await db.connect();await authFixture(db);migrateLocal(url.toString());await seedDemo(db);
+  // Reproduce hosted Supabase: custom roles cannot use the managed auth schema.
+  await db.query('REVOKE USAGE ON SCHEMA auth FROM sorteos_runtime');
   await db.query('UPDATE sorteos.admin_users SET auth_user_id=$1,active=true WHERE id=$2',[ownerSubject,ownerId]);
   await db.query("INSERT INTO sorteos.admin_users(auth_user_id,role,active) VALUES($1,'ADMIN',true)",[staffSubject]);
   await db.query("INSERT INTO sorteos.bank_accounts(id,bank_name,holder_name,account_type,account_display,active) VALUES($1,'BANCO DEMO','NO REAL','SAVINGS','NO TRANSFERIR - SIN CUENTA REAL',true)",[bankId]);
@@ -251,6 +253,12 @@ test('allowlist desactivada revoca lectura y mutaciones, sin depender de expirac
   try{assert.equal((await request('orders',{token:staffToken})).status,403);}finally{await db.query('UPDATE sorteos.admin_users SET active=true WHERE auth_user_id=$1',[staffSubject]);}
 });
 test('ledger no se edita/borra y runtime sin contexto MFA no puede conciliar ni leer secretos Auth',async()=>{
+  assert.equal((await db.query("SELECT has_schema_privilege('sorteos_runtime','auth','USAGE') AS allowed")).rows[0].allowed,false);
+  assert.equal((await db.query("SELECT has_column_privilege('sorteos_runtime','auth.sessions','id','SELECT') AS allowed")).rows[0].allowed,false);
+  assert.equal((await app.get(DatabaseService).transaction(c=>c.query('SELECT sorteos.admin_auth_session_valid(false) AS valid'))).rows[0].valid,false);
+  assert.equal((await db.query(`SELECT count(*)::int AS n FROM pg_proc p CROSS JOIN LATERAL aclexplode(p.proacl) acl
+    WHERE p.oid='sorteos.admin_auth_session_valid(boolean)'::regprocedure AND acl.privilege_type='EXECUTE'
+      AND acl.grantee NOT IN (p.proowner,'sorteos_runtime'::regrole::oid)`)).rows[0].n,0);
   await assert.rejects(()=>db.query("UPDATE sorteos.admin_actions SET action='APPROVE'"));await assert.rejects(()=>db.query('DELETE FROM sorteos.admin_actions'));
   for(const sql of ["UPDATE sorteos.orders SET status='PAID'","SELECT secret FROM auth.mfa_factors","SELECT refresh_token FROM auth.sessions","UPDATE sorteos.admin_users SET active=true"])
     await assert.rejects(()=>app.get(DatabaseService).transaction(c=>c.query(sql)));

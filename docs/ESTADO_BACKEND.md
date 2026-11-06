@@ -6,6 +6,8 @@ Consolidación documental y revisión B5: 2026-11-05. Fuente única de estado de
 
 ## M4 — Integración administrativa web
 
+Corrección posterior del login, 2026-11-06: Auth acepta las credenciales y la allowlist pasa, pero el runtime no puede usar el esquema Auth alojado. Se prepara una comprobación privada booleana y se retira acceso directo a metadatos; migración adicional aún sin aplicar por bloqueo de aprobación automática. Estado vigente y evidencia en [corrección de acceso](ADMIN_AUTH_CORRECCION.md).
+
 Actualización operativa 2026-11-06: con autorización explícita se aplicaron B3/B4/B5 al proyecto Supabase de B1/B2 y se arrancó la API local. Historial alineado, 16 tablas RLS, metadatos Auth limitados y ready 200 comprobados. El OWNER se conserva; faltan su login personal/TOTP y Storage privado real para probar comprobantes. Ver [ejecución y evidencia remota](MIGRACIONES_SUPABASE_B3_B5.md). Los pendientes fechados al final de B4/B5 son históricos y esta actualización sustituye únicamente su estado de aplicación remota.
 
 Fecha: 2026-11-05. Se mantienen las ocho operaciones B5 y se incorpora `GET /api/v1/admin/session`, con AdminGuard, allowlist, comprobación de sesión Auth y autorización financiera cuando MFA está vigente. Respuesta mínima de rol/necesidad de MFA; AAL1 no puede leer órdenes. OpenAPI/cliente pasan a 0.5.1. No hay migración nueva: usa los permisos de metadatos de B5.

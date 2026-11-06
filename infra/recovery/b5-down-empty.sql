@@ -16,6 +16,7 @@ DO $$ DECLARE t text; BEGIN
 END $$;
 DROP TRIGGER financial_insert_guard ON sorteos.payment_incidents;
 DROP FUNCTION sorteos.validate_financial_commit(),sorteos.guard_admin_action(),sorteos.guard_financial_change(),sorteos.assert_financial_admin();
+DROP FUNCTION IF EXISTS sorteos.admin_auth_session_valid(boolean);
 DROP POLICY runtime_update ON sorteos.orders;
 DROP POLICY runtime_update ON sorteos.payment_reports;
 DROP POLICY runtime_update ON sorteos.order_tickets;

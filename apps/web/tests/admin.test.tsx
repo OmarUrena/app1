@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeAll, expect, test, vi } from "vitest";
 import { OrderActions } from "@/features/admin/order-actions";
-import { AdminClientError, adminFetch } from "@/features/admin/client";
+import { AdminClientError, adminFetch, adminMessage } from "@/features/admin/client";
 import { localTransferTime, parseMinor, type AdminOrder } from "@/features/admin/types";
 import { readAdminEnvironment } from "@/lib/config";
 import { LoginForm } from "@/features/admin/auth";
@@ -9,6 +9,13 @@ vi.mock("@/lib/use-hydrated", () => ({ useHydrated: () => false }));
 vi.mock("@/features/admin/client", async importOriginal => ({ ...await importOriginal<typeof import("@/features/admin/client")>(), adminFetch: vi.fn() }));
 const order = { id: "11111111-1111-4111-8111-111111111111", orderCode: "RF-TEST-PRIVATE", status: "PENDING_REVIEW", version: 7, totalMinor: 10025, quantity: 1, duplicateReferenceCount: 0, duplicateReceiptCount: 0 } as AdminOrder;
 beforeAll(() => { HTMLDialogElement.prototype.showModal = function () { this.setAttribute("open", ""); }; HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); }; });
+
+test("login diferencia indisponibilidad y red de credenciales incorrectas", () => {
+  expect(adminMessage("SERVICE_UNAVAILABLE")).toContain("API administrativa");
+  expect(adminMessage("NETWORK_ERROR")).toContain("conectar");
+  expect(adminMessage("INTERNAL_ERROR")).toContain("verificar el acceso");
+  expect(adminMessage("INVALID_CREDENTIALS")).toContain("esos datos");
+});
 
 test("configuración administrativa rechaza secretos, URLs con credenciales y Auth HTTP fuera de test", () => {
   const valid = { APP_ENV: "development", SUPABASE_URL: "https://project.example.test", SUPABASE_PUBLISHABLE_KEY: "sb_publishable_fixture" };
