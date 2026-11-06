@@ -4358,7 +4358,7 @@
   "info": {
     "title": "App Sorteos API",
     "description": "M4: sesión administrativa, conciliación manual auditada, MFA reciente y comprobantes privados.",
-    "version": "0.5.1",
+    "version": "0.5.2",
     "contact": {}
   },
   "tags": [],
@@ -5793,13 +5793,19 @@
             "type": "string",
             "nullable": true,
             "format": "date-time"
+          },
+          "developmentAccessUntil": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
           }
         },
         "required": [
           "adminId",
           "role",
           "mfaRequired",
-          "mfaVerifiedUntil"
+          "mfaVerifiedUntil",
+          "developmentAccessUntil"
         ]
       }
     }

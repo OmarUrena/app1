@@ -7,3 +7,5 @@ coverage/
 !**/.env.example
 *.tsbuildinfo
 .pnpm-store/
+# Generated only by the explicitly enabled NestJS development setup.
+apps/web/public/development/

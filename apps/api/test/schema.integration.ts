@@ -244,8 +244,15 @@ test('RLS y permisos deniegan acceso a un rol con grants pero sin políticas', a
   });
   const tables = await db.query("SELECT relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='sorteos' AND c.relkind='r' AND NOT c.relrowsecurity");
   assert.equal(tables.rows.length,0);
-  const functions = await db.query("SELECT proname FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='sorteos' AND p.prosecdef");
-  assert.equal(functions.rows.length,0);
+  const functions = await db.query<{oid:number;proname:string;proconfig:string[];owner:string;unexpected:number}>(`SELECT p.oid,p.proname,p.proconfig,pg_get_userbyid(p.proowner) AS owner,
+    (SELECT count(*)::int FROM aclexplode(p.proacl) acl WHERE acl.privilege_type='EXECUTE'
+      AND acl.grantee NOT IN (p.proowner,'sorteos_runtime'::regrole::oid)) AS unexpected
+    FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='sorteos' AND p.prosecdef ORDER BY p.proname`);
+  assert.deepEqual(functions.rows.map(f=>f.proname),['admin_auth_session_valid','development_checkout_valid','development_mfa_access_valid']);
+  for(const fn of functions.rows){
+    assert.deepEqual(fn.proconfig,['search_path=""']);assert.notEqual(fn.owner,'sorteos_runtime');assert.equal(fn.unexpected,0);
+    assert.equal((await db.query("SELECT has_function_privilege($1,$2,'EXECUTE') AS allowed",[readerRole,fn.oid])).rows[0].allowed,false);
+  }
 });
 
 test('sorteo real bloqueado en el esquema B1', async () => {

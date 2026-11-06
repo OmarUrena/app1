@@ -194,6 +194,42 @@ test('M4: web, API, PostgreSQL, JWT/JWKS y adaptadores locales Auth/Storage', {t
         fs.closeSync(log);
       }
     });
+    await t.test('desarrollo completo sin TOTP permite compra, archivo privado y aprobacion real; al vencer vuelve MFA',async()=>{
+      const cap=randomBytes(32).toString('hex'),until=new Date(Date.now()+3600000).toISOString();
+      const fullConfig={...app.get<AppConfig>(APP_CONFIG),corsOrigins:['http://127.0.0.1:3117'],developmentMfaToken:cap,developmentMfaUntil:until,developmentLocalReceipts:true};
+      const setupUrl=localDatabaseUrl(process.env.TEST_DATABASE_URL);setupUrl.pathname='/'+name;
+      await new DevelopmentWorkflowSetup({...fullConfig,databaseUrl:setupUrl.toString()}).prepare();
+      const api=await createApp(fullConfig);await api.listen(0,'127.0.0.1');
+      const fs=require('node:fs'),path=require('node:path'),isolated=path.join(m4Workspace,'.tmp','m4-full-development-'+process.pid),original=path.join(m4Workspace,'apps/web');
+      fs.mkdirSync(isolated,{recursive:true});for(const file of ['package.json','next.config.ts','tsconfig.json','postcss.config.mjs'])fs.copyFileSync(path.join(original,file),path.join(isolated,file));
+      fs.symlinkSync(path.join(original,'node_modules'),path.join(isolated,'node_modules'),process.platform==='win32'?'junction':'dir');
+      for(const directory of ['src','public'])fs.cpSync(path.join(original,directory),path.join(isolated,directory),{recursive:true});
+      const fullOrigin='http://127.0.0.1:3117',log=fs.openSync(path.join(m4Workspace,'.tmp/m4-full-development.log'),'w');
+      const child=require('node:child_process').spawn(process.execPath,[m4WebRequire.resolve('next/dist/bin/next'),'dev','--webpack','--hostname','127.0.0.1','--port','3117'],{
+        cwd:isolated,windowsHide:true,stdio:['ignore',log,log],env:{...process.env,NODE_ENV:'development',APP_ENV:'test',API_MODE:'live',API_BASE_URL:(await api.getUrl())+'/api/v1',SUPABASE_URL:issuer,SUPABASE_PUBLISHABLE_KEY:'sb_publishable_b5_fixture',WEB_ORIGIN:fullOrigin,NEXT_TELEMETRY_DISABLED:'1',ADMIN_LOGIN_WITHOUT_TOTP_UNTIL:until}
+      });
+      try{
+        const deadline=Date.now()+120000;let ready=false;
+        while(Date.now()<deadline){if(child.exitCode!==null)throw Error('Next de desarrollo no pudo iniciar');try{if((await globalThis.fetch(fullOrigin+'/admin/login',{signal:AbortSignal.timeout(5000)})).ok){ready=true;break;}}catch{}await new Promise(r=>setTimeout(r,500));}
+        assert.equal(ready,true);
+        const owner=await browser.newContext();contexts.push(owner);const view=await owner.newPage();
+        await view.goto(fullOrigin+'/admin/login');await view.getByLabel('Correo administrativo').fill('owner@example.invalid');await view.getByLabel('Contraseña',{exact:true}).fill(m4Password);
+        await view.getByRole('button',{name:'Iniciar sesión',exact:true}).click();await view.waitForURL('**/admin/ordenes');await view.getByText('Prueba de desarrollo sin TOTP',{exact:true}).waitFor();
+        const buyer=await browser.newContext();contexts.push(buyer);const checkout=await buyer.newPage();
+        await checkout.goto(fullOrigin+'/rifas/demo-prueba-completa/participar');await checkout.getByRole('button',{name:'Consultar y reservar cupo temporal'}).click();await checkout.getByText('Cupo reservado temporalmente',{exact:true}).waitFor();
+        await checkout.getByLabel('Nombre completo',{exact:true}).fill('CLIENTE DEMO DE DESARROLLO');await checkout.getByLabel('Teléfono con código de país').fill('+1 (809) 555-0100');await checkout.getByLabel('Correo electrónico',{exact:true}).fill('development-flow@example.invalid');
+        const account=(await db.query("SELECT id FROM sorteos.bank_accounts WHERE is_demo AND bank_name='BANCO DEMO — NO EXISTE'")).rows[0].id;
+        await checkout.getByLabel('Cuenta a la que transferiste').selectOption(account);await checkout.getByLabel('Referencia bancaria',{exact:true}).fill('DEMO-SIN-TRANSFERENCIA');await checkout.getByLabel('Fecha y hora de la transferencia',{exact:true}).fill(new Date(Date.now()-14460000).toISOString().slice(0,16));await checkout.getByRole('checkbox').check();
+        await checkout.getByLabel('Imagen JPG/PNG o PDF',{exact:true}).setInputFiles({name:'demo.png',mimeType:'image/png',buffer:png});await checkout.getByRole('button',{name:'Enviar orden y comprobante'}).click();await checkout.waitForURL('**/orden/confirmacion');await checkout.getByRole('heading',{name:'Orden y comprobante recibidos.',exact:true}).waitFor();
+        const row=(await db.query(`SELECT o.id,o.order_code,o.raffle_id,p.id AS report_id FROM sorteos.orders o JOIN sorteos.customers c ON c.id=o.customer_id JOIN sorteos.payment_reports p ON p.order_id=o.id WHERE c.email='development-flow@example.invalid'`)).rows[0];
+        const receipt=await owner.request.get(fullOrigin+'/admin/api/payment-reports/'+row.report_id+'/receipt');assert.equal(receipt.status(),200);assert.ok((await receipt.body()).length>0);
+        await view.goto(fullOrigin+'/admin/ordenes/'+row.id);await view.getByRole('heading',{name:'Decisión administrativa'}).waitFor();
+        const dialog=await prepared('Aprobar pago',view);await approvalForm(dialog,{id:row.id,total:10000} as Fixture);await confirm(dialog);await view.getByText('Pago confirmado',{exact:true}).first().waitFor();
+        const inventory=(await db.query("SELECT count(*) FILTER(WHERE status='SOLD')::int AS sold,count(*) FILTER(WHERE status='RESERVED')::int AS reserved FROM sorteos.tickets WHERE raffle_id=$1",[row.raffle_id])).rows[0];assert.deepEqual(inventory,{sold:1,reserved:0});
+        await db.query("UPDATE sorteos.development_admin_access SET created_at=now()-interval '2 hours',expires_at=now()-interval '1 hour' WHERE token_hash=$1",[createHash('sha256').update(cap).digest('hex')]);
+        assert.equal((await owner.request.get(fullOrigin+'/admin/api/orders')).status(),403);
+      }finally{if(child.exitCode===null){child.kill();await Promise.race([new Promise(r=>child.once('exit',r)),new Promise(r=>setTimeout(r,5000))]);}fs.closeSync(log);await api.close();}
+    });
     await t.test('login y revisión se ejecutan también en Firefox y WebKit móvil',async()=>{
       for(const [engine,label]of [[firefox,'firefox'],[webkit,'webkit-mobile']]){
         const actual=await engine.launch();try{const view=await actual.newPage({viewport:{width:390,height:844}});await login(view);await visit(await order(),view);assert.equal(await view.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await view.screenshot({path:screenshot+'/detalle-'+label+'.png',fullPage:true});}finally{await actual.close();}

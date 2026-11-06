@@ -10,6 +10,7 @@ export class AdminSessionDto {
   @ApiProperty({enum:['OWNER','ADMIN']}) role!:'OWNER'|'ADMIN';
   @ApiProperty() mfaRequired!:boolean;
   @ApiProperty({type:String,nullable:true,format:'date-time'}) mfaVerifiedUntil!:string|null;
+  @ApiProperty({type:String,nullable:true,format:'date-time'}) developmentAccessUntil!:string|null;
 }
 
 @ApiTags('admin-auth') @ApiBearerAuth() @UseGuards(AdminGuard) @Controller('admin')
@@ -27,9 +28,10 @@ export class AdminSessionController {
       if(!session.rows[0]?.valid)throw new UnauthorizedException({code:'SESSION_REVOKED'});
     });
     const proof=req.adminProof,now=Math.floor(Date.now()/1000);
-    const mfaRequired=proof.aal!=='aal2'||proof.mfaAt<now-900||proof.mfaAt>now+5;
+    const developmentAccessUntil=await this.financial.developmentAccess(req.admin,proof,String(res.getHeader('X-Request-Id')));
+    const mfaRequired=!developmentAccessUntil&&(proof.aal!=='aal2'||proof.mfaAt<now-900||proof.mfaAt>now+5);
     if(!mfaRequired)await this.financial.check(req.admin,proof,String(res.getHeader('X-Request-Id')));
     return {adminId:req.admin.id,role:req.admin.role,mfaRequired,
-      mfaVerifiedUntil:mfaRequired?null:new Date((proof.mfaAt+900)*1000).toISOString()};
+      mfaVerifiedUntil:developmentAccessUntil||mfaRequired?null:new Date((proof.mfaAt+900)*1000).toISOString(),developmentAccessUntil};
   }
 }

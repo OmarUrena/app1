@@ -1,5 +1,7 @@
 # Corrección del login administrativo — 2026-11-06
 
+Actualización posterior: el propietario autorizó el proceso completo de desarrollo sin TOTP, con capacidad privada y vencimiento. Se añadió almacenamiento privado local de pruebas y una orden DEMO pendiente; operación actual en [prueba completa](DESARROLLO_PRUEBA_COMPLETA.md). El diagnóstico y corrección Auth originales siguientes conservan su alcance histórico; no se desactivó Auth ni se eliminaron factores.
+
 ## Causa comprobada
 
 Los registros remotos muestran login Auth 200 seguido del rechazo SQLSTATE 42501 al comprobar la sesión; el usuario sí pasó la allowlist. El rol `sorteos_runtime` carece de USAGE sobre Auth, aunque B5 concedió SELECT limitado sobre metadatos. La API transformaba el fallo en 503 `SERVICE_UNAVAILABLE` y la web usaba un mensaje genérico. No hay evidencia de contraseña incorrecta en esos intentos.

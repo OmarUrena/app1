@@ -6,6 +6,8 @@ Consolidación documental: 2026-11-05. Fuente única de estado del frontend; re�
 
 ## M4
 
+Ampliación posterior solicitada por el propietario, 2026-11-06: el perfil completo de desarrollo abre administración sin TOTP cuando la API confirma la capacidad vigente. La web comunica el vencimiento y conserva login/rol/sesión reales. Se probaron compra con archivo privado local y aprobación desde navegador; el formulario real de 3000 creó una orden DEMO pendiente para el propietario. La ventana actual y resultados se documentan en [prueba completa](DESARROLLO_PRUEBA_COMPLETA.md); el párrafo siguiente conserva el alcance inicial de login solamente.
+
 Prueba temporal de login solicitada el 2026-11-06: acceso AAL1 a confirmación protegida sin TOTP, limitado a desarrollo local y con vencimiento automático; datos/acciones financieras conservan MFA. Ver [ADR 0017](decisions/0017-local-login-trial.md). Verificación actual: 45/45 web, 15/15 integración M4 y lint/typecheck/build web aprobados. Sin cambio remoto de Auth ni uso de credenciales personales del propietario.
 
 Diagnóstico posterior del login, 2026-11-06: el mensaje genérico ocultaba un 503 por permisos efectivos de la sesión Auth. Se distinguen indisponibilidad, error interno y red; la corrección de sesión fue autorizada y aplicada, con verificación real bajo runtime aprobada. No se declara login/TOTP personal completado: corresponde reintentarlo en el navegador. Ver [corrección de acceso](ADMIN_AUTH_CORRECCION.md).

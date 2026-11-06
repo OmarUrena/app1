@@ -8,6 +8,7 @@ export default async function LoginTestPage() {
   const trial = localLoginTest(process.env);
   if (!trial) redirect("/admin");
   const admin = await requireAdmin(true);
+  if (!admin.mfaRequired) redirect("/admin/ordenes");
   const expiry = new Intl.DateTimeFormat("es-DO", { timeZone: "America/Santo_Domingo", dateStyle: "short", timeStyle: "short" }).format(trial.expiresAt);
   return <SectionContainer><div className="narrow"><Card>
     <h1>Inicio de sesión verificado</h1>

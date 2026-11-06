@@ -16,12 +16,13 @@ export function AdminFrame({ session, children }: { session: AdminSession; child
     const focus = () => { if (document.visibilityState === "visible") check(); };
     const restored = (event: PageTransitionEvent) => { if (event.persisted) navigateAdmin("/admin"); };
     const interval = setInterval(check, 60000);
-    const deadline = session.mfaVerifiedUntil ? setTimeout(() => navigateAdmin("/admin/mfa"), Math.max(0, Date.parse(session.mfaVerifiedUntil) - Date.now())) : undefined;
+    const until = session.developmentAccessUntil ?? session.mfaVerifiedUntil;
+    const deadline = until ? setTimeout(() => navigateAdmin("/admin/mfa"), Math.max(0, Date.parse(until) - Date.now())) : undefined;
     document.addEventListener("visibilitychange", focus);
     window.addEventListener("pageshow", restored);
     return () => { clearInterval(interval); clearTimeout(deadline); document.removeEventListener("visibilitychange", focus); window.removeEventListener("pageshow", restored); };
-  }, [session.mfaVerifiedUntil]);
-  return <><div className="admin-toolbar"><Link href="/admin/ordenes" prefetch={false}>Órdenes y revisión</Link><span>Permiso: {session.role === "OWNER" ? "Propietario" : "Revisor"}</span><LogoutButton /></div>{children}</>;
+  }, [session.mfaVerifiedUntil, session.developmentAccessUntil]);
+  return <>{session.developmentAccessUntil && <Alert title="Prueba de desarrollo sin TOTP">Acceso temporal hasta {formatDate(session.developmentAccessUntil)}. Usa únicamente datos y comprobantes DEMO; no realices transferencias bancarias.</Alert>}<div className="admin-toolbar"><Link href="/admin/ordenes" prefetch={false}>Órdenes y revisión</Link><span>Permiso: {session.role === "OWNER" ? "Propietario" : "Revisor"}</span><LogoutButton /></div>{children}</>;
 }
 
 export function OrdersList() {

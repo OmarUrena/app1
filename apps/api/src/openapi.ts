@@ -5,7 +5,7 @@ export function createDocument(app: INestApplication) {
   const document = SwaggerModule.createDocument(app, new DocumentBuilder()
     .setTitle('App Sorteos API').setDescription('M4: sesión administrativa, conciliación manual auditada, MFA reciente y comprobantes privados.')
     .addCookieAuth('__Host-sorteos_guest',{type:'apiKey',in:'cookie',description:'Cookie HttpOnly de checkout-session; en desarrollo: sorteos_guest.'},'guestSession')
-    .addBearerAuth().setVersion('0.5.1').build(), {
+    .addBearerAuth().setVersion('0.5.2').build(), {
     operationIdFactory: (controller, method) => `${controller}_${method}`,
   });
   for (const path of Object.values(document.paths)) {

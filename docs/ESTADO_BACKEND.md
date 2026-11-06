@@ -6,6 +6,8 @@ Consolidación documental y revisión B5: 2026-11-05. Fuente única de estado de
 
 ## M4 — Integración administrativa web
 
+Ampliación autorizada el 2026-11-06: proceso de desarrollo completo sin TOTP mediante capacidad privada de servidor, vinculada a OWNER/sesión y con vencimiento. Ocho migraciones aplicadas y 17 tablas RLS; cuenta DEMO conserva is_demo/inactiva y el checkout solo la admite para la rifa de prueba bajo capacidad. Comprobante privado local real y una orden PENDING_REVIEW creada por el formulario normal, sin transferencia. MFA/roles normales siguen fuera de la excepción; Supabase Storage productivo pendiente. Ver [ADR 0018](decisions/0018-development-full-workflow.md) y [ejecución](DESARROLLO_PRUEBA_COMPLETA.md).
+
 Corrección posterior del login, 2026-11-06: Auth aceptaba las credenciales y la allowlist pasaba, pero faltaba USAGE del esquema Auth. Tras autorización explícita se aplicó la comprobación privada booleana y se retiró SELECT directo del runtime. Verificación real de sesión OWNER y rechazos bajo runtime aprobada; seis migraciones alineadas, sin pendientes. Login/TOTP personal por reintentar. Estado vigente y evidencia en [corrección de acceso](ADMIN_AUTH_CORRECCION.md).
 
 Actualización operativa 2026-11-06: con autorización explícita se aplicaron B3/B4/B5 al proyecto Supabase de B1/B2 y se arrancó la API local. Historial alineado, 16 tablas RLS, metadatos Auth limitados y ready 200 comprobados. El OWNER se conserva; faltan su login personal/TOTP y Storage privado real para probar comprobantes. Ver [ejecución y evidencia remota](MIGRACIONES_SUPABASE_B3_B5.md). Los pendientes fechados al final de B4/B5 son históricos y esta actualización sustituye únicamente su estado de aplicación remota.

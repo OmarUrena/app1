@@ -27,6 +27,9 @@ export interface AppConfig {
   receiptBucket:string;
   storageKey?:string;
   receiptMaxBytes:number;
+  developmentMfaToken?:string;
+  developmentMfaUntil?:string;
+  developmentLocalReceipts:boolean;
 }
 
 export const APP_CONFIG = Symbol('APP_CONFIG');
@@ -51,6 +54,17 @@ export function parseConfig(env: NodeJS.ProcessEnv): AppConfig {
     throw new Error('Configuración inválida: NODE_ENV');
   }
   const deployed = environment === 'production' || environment === 'staging';
+  const developmentMfaToken=env.ADMIN_DEVELOPMENT_MFA_TOKEN||undefined;
+  const developmentMfaUntil=env.ADMIN_DEVELOPMENT_MFA_UNTIL||undefined;
+  const developmentLocalReceipts=boolean(env.DEVELOPMENT_LOCAL_RECEIPTS,false,'DEVELOPMENT_LOCAL_RECEIPTS');
+  if(developmentLocalReceipts&&(deployed||!['127.0.0.1','localhost','::1','[::1]'].includes(env.HOST??'127.0.0.1')))
+    throw new Error('Comprobantes locales solo permitidos en desarrollo loopback');
+  if(developmentMfaToken||developmentMfaUntil){
+    if(deployed || !developmentMfaToken || !/^[a-f0-9]{64}$/.test(developmentMfaToken)
+      || !developmentMfaUntil || !Number.isFinite(Date.parse(developmentMfaUntil))
+      || !['127.0.0.1','localhost','::1','[::1]'].includes(env.HOST??'127.0.0.1'))
+      throw new Error('Excepcion MFA solo permitida en desarrollo loopback con capacidad y vencimiento validos');
+  }
   const abuseHashKey=env.CHECKOUT_ABUSE_HASH_KEY || (deployed ? '' : developmentAbuseKey);
   if (abuseHashKey.length<32) throw new Error('CHECKOUT_ABUSE_HASH_KEY requiere al menos 32 caracteres');
   const corsOrigins = (env.CORS_ORIGINS ?? (deployed ? '' : 'http://localhost:3000'))
@@ -62,6 +76,9 @@ export function parseConfig(env: NodeJS.ProcessEnv): AppConfig {
         || (deployed && url.protocol !== 'https:');
     } catch { return true; }
   })) throw new Error('Configuración inválida: CORS_ORIGINS');
+  if((developmentMfaToken||developmentLocalReceipts)&&corsOrigins.some(origin=>{
+    const url=new URL(origin);return url.protocol!=='http:'||!['127.0.0.1','localhost','[::1]'].includes(url.hostname);
+  }))throw new Error('Excepcion MFA requiere origenes web loopback');
   const swaggerEnabled = boolean(env.SWAGGER_ENABLED, !deployed, 'SWAGGER_ENABLED');
   if (deployed && swaggerEnabled) throw new Error('Swagger público prohibido en staging/production');
   const logLevel = env.LOG_LEVEL ?? 'info';
@@ -122,6 +139,7 @@ export function parseConfig(env: NodeJS.ProcessEnv): AppConfig {
     holdSweepMs:integer(env.HOLD_SWEEP_MS,30000,'HOLD_SWEEP_MS',3600000),
     abuseHashKey,
     receiptBucket,storageKey,receiptMaxBytes:integer(env.RECEIPT_MAX_BYTES,5242880,'RECEIPT_MAX_BYTES',10485760),
+    developmentMfaToken,developmentMfaUntil,developmentLocalReceipts,
   };
 }
 

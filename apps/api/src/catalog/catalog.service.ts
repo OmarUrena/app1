@@ -1,10 +1,12 @@
-import { ConflictException, ForbiddenException, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Inject, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { PoolClient } from 'pg';
 import { DatabaseService } from '../database/database.service';
 import { AdminIdentity } from '../auth/admin.guard';
 import { AdminPageQueryDto, AdminRaffleDto, AvailabilityDto, CreateRaffleDto, PageQueryDto,
   PatchRaffleDto, PublicBankAccountDto, RaffleDetailDto, RaffleMediaInputDto, RaffleStatus } from './catalog.dto';
 import { MediaService } from './media.service';
+import { APP_CONFIG, AppConfig } from '../config/config';
+import { developmentToken } from '../development/capability';
 
 interface RaffleRow {
   id:string; slug:string; title:string; description:string; prize:string; total_tickets:number;
@@ -15,7 +17,7 @@ type MediaRow = {storage_key:string;alt:string;rights_confirmed:boolean};
 
 @Injectable()
 export class CatalogService {
-  constructor(private readonly db: DatabaseService, private readonly media: MediaService) {}
+  constructor(private readonly db: DatabaseService, private readonly media: MediaService,@Inject(APP_CONFIG) private readonly config:AppConfig) {}
 
   private async counts(client: PoolClient, id:string): Promise<AvailabilityDto> {
     const result = await client.query<{total:number;available:number;held:number;reserved:number;sold:number;asOf:Date}>(`
@@ -81,9 +83,12 @@ export class CatalogService {
     return this.db.transaction(async client=>this.counts(client,(await this.row(client,slug,true,true)).id),true);
   }
   async bankAccounts() {
-    return this.db.transaction(async client=>({items:(await client.query<PublicBankAccountDto>(`
+    return this.db.transaction(async client=>{
+      let demo=false;const token=developmentToken(this.config);
+      if(token){await client.query("SELECT set_config('app.development_mfa_token',$1,true)",[token]);demo=(await client.query<{valid:boolean}>('SELECT sorteos.development_checkout_valid() AS valid')).rows[0]?.valid===true;}
+      return {items:(await client.query<PublicBankAccountDto>(`
       SELECT id,bank_name AS "bankName",account_type AS "accountType",account_display AS "accountDisplay",
-      holder_name AS "holderName",currency FROM sorteos.bank_accounts WHERE active AND NOT is_demo ORDER BY bank_name,id`)).rows}),true);
+      holder_name AS "holderName",currency FROM sorteos.bank_accounts WHERE (active AND NOT is_demo) OR (is_demo AND $1) ORDER BY bank_name,id`,[demo])).rows};},true);
   }
 
   private validate(input:CreateRaffleDto):void {

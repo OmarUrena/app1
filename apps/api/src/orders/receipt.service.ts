@@ -38,13 +38,22 @@ export class ReceiptService {
         // Parsers pueden imprimir fragmentos de entrada: nunca enviarlos a logs.
         worker.stdout?.resume();worker.stderr?.resume();
         let finished=false;
-        const end=(data?:{bytes:Uint8Array;mime:string;extension:string;invalid?:boolean})=>{
+        const end=(data?:unknown)=>{
+          // Node --watch forwards dependency notifications through worker message events.
+          // They are not parser results; keep waiting for the validated receipt payload.
+          if(data&&typeof data==='object'&&Object.keys(data).length===1
+            &&Object.entries(data).some(([key,value])=>['watch:require','watch:import'].includes(key)
+              &&Array.isArray(value)&&value.every(item=>typeof item==='string'||item===undefined)))return;
           if(finished)return;finished=true;clearTimeout(timer);void worker.terminate();
-          if(!data || data.invalid || data.bytes.length>this.config.receiptMaxBytes)reject(new HttpException({code:'INVALID_RECEIPT'},422));
+          if(!data||typeof data!=='object'||!('bytes'in data)||!(data.bytes instanceof Uint8Array)
+            ||!data.bytes.length||data.bytes.length>this.config.receiptMaxBytes
+            ||!('mime'in data)||typeof data.mime!=='string'||!['image/jpeg','image/png','application/pdf'].includes(data.mime)
+            ||!('extension'in data)||typeof data.extension!=='string'||!['jpg','png','pdf'].includes(data.extension))
+            reject(new HttpException({code:'INVALID_RECEIPT'},422));
           else accept({bytes:Buffer.from(data.bytes),mime:data.mime,extension:data.extension});
         };
         const timer=setTimeout(()=>end(),10000);
-        worker.once('message',end);worker.once('error',()=>end());worker.once('exit',()=>end());
+        worker.on('message',end);worker.once('error',()=>end());worker.once('exit',()=>end());
       });
     }finally{const next=this.waiting.shift();if(next)next();else this.active--;}
   }

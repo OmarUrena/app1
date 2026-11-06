@@ -14,8 +14,44 @@ import { fetchFromServer } from '../src/common/server-fetch';
 import { startupFailure } from '../src/common/startup-error';
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
+import { randomUUID } from 'node:crypto';
+import { PrivateStorageService } from '../src/orders/private-storage.service';
+import { ReceiptService } from '../src/orders/receipt.service';
+import { PDFDocument } from 'pdf-lib';
 
 const config = parseConfig({ NODE_ENV: 'test', LOG_LEVEL: 'silent', SWAGGER_ENABLED: 'true' });
+
+test('worker de comprobantes ignora avisos internos Node watch y procesa PDF sin cerrar la API',async()=>{
+  const previous=process.env.WATCH_REPORT_DEPENDENCIES;
+  process.env.WATCH_REPORT_DEPENDENCIES='1';
+  try{
+    const pdf=await PDFDocument.create();pdf.addPage();const bytes=Buffer.from(await pdf.save());
+    const receipt=await new ReceiptService(config).validate({buffer:bytes,mimetype:'application/pdf',size:bytes.length});
+    assert.equal(receipt.mime,'application/pdf');assert.deepEqual(receipt.bytes,bytes);
+  }finally{if(previous===undefined)delete process.env.WATCH_REPORT_DEPENDENCIES;else process.env.WATCH_REPORT_DEPENDENCIES=previous;}
+});
+
+test('comprobantes privados de desarrollo guardan archivos reales, sin sobrescritura ni rutas arbitrarias',async()=>{
+  assert.throws(()=>parseConfig({NODE_ENV:'production',DEVELOPMENT_LOCAL_RECEIPTS:'true'}));
+  assert.throws(()=>parseConfig({NODE_ENV:'test',HOST:'0.0.0.0',DEVELOPMENT_LOCAL_RECEIPTS:'true'}));
+  const storage=new PrivateStorageService({...config,developmentLocalReceipts:true});
+  const path=`pending/${randomUUID()}.png`,bytes=Buffer.from('DEMO PRIVATE RECEIPT');
+  try{
+    await storage.upload(path,bytes,'image/png');
+    assert.deepEqual((await storage.download(path)).bytes,bytes);
+    await assert.rejects(()=>storage.upload(path,bytes,'image/png'));
+    for(const invalid of ['../secret.png','pending/../secret.png','pending/invalid.png'])await assert.rejects(()=>storage.download(invalid));
+    await storage.remove(path);await assert.rejects(()=>storage.download(path));
+  }finally{await storage.remove(path);}
+});
+
+test('excepcion MFA de desarrollo rechaza produccion, staging, capacidad incompleta y origenes externos',()=>{
+  const valid={NODE_ENV:'test',ADMIN_DEVELOPMENT_MFA_TOKEN:'a'.repeat(64),ADMIN_DEVELOPMENT_MFA_UNTIL:'2026-11-07T00:00:00Z'};
+  assert.equal(parseConfig(valid).developmentMfaToken,valid.ADMIN_DEVELOPMENT_MFA_TOKEN);
+  for(const change of [{NODE_ENV:'production'},{NODE_ENV:'staging'},{HOST:'0.0.0.0'},
+    {ADMIN_DEVELOPMENT_MFA_TOKEN:''},{ADMIN_DEVELOPMENT_MFA_TOKEN:'invalid'},
+    {ADMIN_DEVELOPMENT_MFA_UNTIL:'invalid'},{CORS_ORIGINS:'http://example.invalid'}])assert.throws(()=>parseConfig({...valid,...change}));
+});
 
 test('fallos de arranque informan causas conocidas sin reproducir secretos de excepciones', () => {
   for (const code of ['EADDRINUSE', 'EACCES', 'EADDRNOTAVAIL']) {

@@ -2,6 +2,8 @@
 
 Fecha: 2026-11-06. Estado: implementada por petición explícita del propietario para probar el inicio de sesión sin configurar TOTP.
 
+Actualización posterior: el propietario amplió la petición al proceso completo de desarrollo. [ADR 0018](0018-development-full-workflow.md) registra esa ampliación; la ventana y operación actuales están en [prueba completa](../DESARROLLO_PRUEBA_COMPLETA.md). La restricción financiera descrita aquí corresponde al alcance inicial y se conserva por defecto fuera de la capacidad de desarrollo.
+
 Se habilita un destino de prueba `/admin/prueba-acceso` para sesiones AAL1 autorizadas. El login continúa comprobando correo/contraseña con Supabase Auth y firma, usuario, allowlist activa y sesión vigente con NestJS. La página consulta esa identidad real antes de confirmar el acceso; no simula éxito. Permite comprobar login, renovación y logout sin solicitar TOTP durante la ventana de prueba.
 
 El permiso de prueba se configura únicamente en el servidor web mediante `ADMIN_LOGIN_WITHOUT_TOTP_UNTIL`, una fecha ISO UTC. Solo es efectivo cuando NODE_ENV y APP_ENV son development/test, el modo es live y tanto WEB_ORIGIN como API_BASE_URL usan HTTP loopback. Se rechazan orígenes externos y WEB_ORIGIN con rutas. Vacío, inválido o vencido restaura el flujo MFA habitual. NODE_ENV production lo ignora incluso con fecha futura, independientemente de APP_ENV. No se usan parámetros del navegador para habilitarlo.

@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
+    "dev:prepare": "node -r ts-node/register src/development/prepare-workflow.ts",
     "dev": "node --watch -r ts-node/register src/main.ts",
     "start": "node dist/main.js",
     "build": "tsc -p tsconfig.build.json",

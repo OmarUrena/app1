@@ -1,16 +1,18 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { HttpException, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { HttpException, Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { PoolClient } from 'pg';
 import { CheckoutService } from '../checkout/checkout.service';
 import { DatabaseService } from '../database/database.service';
 import { OrderDto, SubmitOrderDto } from './orders.dto';
 import { ReceiptService, ReceiptUpload } from './receipt.service';
 import { PrivateStorageService } from './private-storage.service';
+import { APP_CONFIG, AppConfig } from '../config/config';
+import { developmentToken } from '../development/capability';
 
 const sha=(bytes:Buffer|string)=>createHash('sha256').update(bytes).digest('hex');
 function fail(code:string,status:number):never{throw new HttpException({code},status);}
 interface OrderRow {id:string;order_code:string;status:string;request_hash:string;raffle_id:string;ticket_quantity:number;total_minor:string;created_at:Date}
-interface HoldRow {id:string;raffle_id:string;quantity:number;unit_price_minor_snapshot:string;rules_version_snapshot:string;status:string;expired:boolean}
+interface HoldRow {id:string;raffle_id:string;quantity:number;unit_price_minor_snapshot:string;rules_version_snapshot:string;status:string;expired:boolean;isDemoBank?:boolean}
 interface Stage {id:string;storage_path:string;sha256:string;status:string}
 
 @Injectable()
@@ -18,11 +20,12 @@ export class OrdersService implements OnModuleInit,OnModuleDestroy {
   private timer?:ReturnType<typeof setInterval>;
   private cleaning=false;
   constructor(private readonly db:DatabaseService,private readonly checkout:CheckoutService,
-    private readonly receipts:ReceiptService,private readonly storage:PrivateStorageService){}
+    private readonly receipts:ReceiptService,private readonly storage:PrivateStorageService,@Inject(APP_CONFIG) private readonly config:AppConfig){}
   onModuleInit(){this.timer=setInterval(()=>{void this.sweep();},60000);this.timer.unref();}
   onModuleDestroy(){if(this.timer)clearInterval(this.timer);}
   private async context(c:PoolClient,requestId:string,sessionId?:string){
     await c.query("SELECT set_config('app.actor_kind',$1,true),set_config('app.actor_id',$2,true),set_config('app.request_id',$3,true)",[sessionId?'GUEST':'SYSTEM',sessionId??'',requestId]);
+    await c.query("SELECT set_config('app.development_mfa_token',$1,true)",[developmentToken(this.config)]);
   }
   private async previous(c:PoolClient,sessionId:string,key:string,requestHash:string) {
     const row=await c.query<OrderRow>('SELECT * FROM sorteos.orders WHERE session_id=$1 AND idempotency_key=$2',[sessionId,key]);
@@ -32,18 +35,21 @@ export class OrdersService implements OnModuleInit,OnModuleDestroy {
   private async hold(c:PoolClient,sessionId:string,body:SubmitOrderDto):Promise<HoldRow> {
     const found=await c.query<HoldRow>('SELECT * FROM sorteos.checkout_holds WHERE id=$1 AND session_id=$2',[body.holdId,sessionId]);
     if(!found.rows[0])fail('NOT_FOUND',404);
-    const raffle=await c.query<{status:string;rules_version:string}>('SELECT status,rules_version FROM sorteos.raffles WHERE id=$1 FOR UPDATE',[found.rows[0].raffle_id]);
+    const raffle=await c.query<{status:string;rules_version:string;slug:string}>('SELECT status,rules_version,slug FROM sorteos.raffles WHERE id=$1 FOR UPDATE',[found.rows[0].raffle_id]);
     const locked=await c.query<HoldRow>('SELECT *,expires_at<=clock_timestamp() AS expired FROM sorteos.checkout_holds WHERE id=$1 FOR UPDATE',[body.holdId]);
     const hold=locked.rows[0]!;
     if(hold.status==='CONSUMED')fail('HOLD_CONSUMED',409);
     if(hold.status!=='ACTIVE'||hold.expired)fail('HOLD_EXPIRED',409);
     if(!raffle.rows[0] || !['PUBLISHED','PAUSED'].includes(raffle.rows[0].status))fail('RAFFLE_NOT_AVAILABLE',409);
     if(body.acceptedRulesVersion!==hold.rules_version_snapshot||body.acceptedRulesVersion!==raffle.rows[0].rules_version)fail('RULES_CHANGED',409);
-    const bank=await c.query('SELECT id FROM sorteos.bank_accounts WHERE id=$1 AND active AND NOT is_demo',[body.bankAccountId]);
+    let demo=false;
+    if(developmentToken(this.config)&&raffle.rows[0].slug==='demo-prueba-completa'&&raffle.rows[0].rules_version==='DEMO-PRUEBA-1')
+      demo=(await c.query<{valid:boolean}>('SELECT sorteos.development_checkout_valid() AS valid')).rows[0]?.valid===true;
+    const bank=await c.query<{id:string;is_demo:boolean}>('SELECT id,is_demo FROM sorteos.bank_accounts WHERE id=$1 AND ((active AND NOT is_demo) OR (is_demo AND $2))',[body.bankAccountId,demo]);
     if(!bank.rowCount)fail('INVALID_BANK_ACCOUNT',422);
     const date=await c.query<{valid:boolean}>('SELECT $1::timestamptz<=clock_timestamp()+interval \'5 minutes\' AS valid',[body.transferDate]);
     if(!date.rows[0]!.valid)fail('INVALID_TRANSFER_DATE',422);
-    return hold;
+    return {...hold,isDemoBank:bank.rows[0]?.is_demo===true};
   }
   private async response(c:PoolClient,order:OrderRow):Promise<OrderDto> {
     const raffle=await c.query<{title:string;ticket_width:number}>('SELECT title,ticket_width FROM sorteos.raffles WHERE id=$1',[order.raffle_id]);
@@ -93,7 +99,7 @@ export class OrdersService implements OnModuleInit,OnModuleDestroy {
         const hold=await this.hold(c,session.id,body);
         const staged=await c.query('SELECT id FROM sorteos.receipt_staging WHERE id=$1 AND status=\'PENDING\' AND cleanup_after>clock_timestamp() FOR UPDATE',[stage.id]);
         if(!staged.rowCount)fail('STORAGE_UNAVAILABLE',503);
-        const customer=await c.query<{id:string}>('INSERT INTO sorteos.customers(name,phone,email) VALUES($1,$2,$3) RETURNING id',[body.customerName,body.customerPhone,body.customerEmail]);
+        const customer=await c.query<{id:string}>('INSERT INTO sorteos.customers(name,phone,email,is_demo) VALUES($1,$2,$3,$4) RETURNING id',[body.customerName,body.customerPhone,body.customerEmail,hold.isDemoBank===true]);
         const order=await c.query<OrderRow>(`INSERT INTO sorteos.orders(order_code,raffle_id,customer_id,session_id,hold_id,ticket_quantity,
           unit_price_minor,rules_version_snapshot,lookup_secret_hash,idempotency_key,request_hash)
           VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,

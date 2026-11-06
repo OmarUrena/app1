@@ -796,6 +796,8 @@ export interface components {
             mfaRequired: boolean;
             /** Format: date-time */
             mfaVerifiedUntil: string | null;
+            /** Format: date-time */
+            developmentAccessUntil: string | null;
         };
     };
     responses: never;

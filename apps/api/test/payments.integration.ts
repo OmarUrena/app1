@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { createServer, Server } from 'node:http';
 import { AddressInfo } from 'node:net';
 import { after, before, test } from 'node:test';
@@ -9,13 +9,14 @@ import { INestApplication } from '@nestjs/common';
 import { Client } from 'pg';
 import sharp from 'sharp';
 import { createApp } from '../src/bootstrap';
-import { parseConfig } from '../src/config/config';
+import { APP_CONFIG, AppConfig, parseConfig } from '../src/config/config';
 import { localDatabaseUrl, migrateLocal } from '../src/database/local-tools';
 import { seedDemo } from '../src/database/seed-demo';
 import { revertEmptyB5 } from './recovery-tools';
 import { AdminOrderDetailDto, AdminOrdersPageDto, FinancialResultDto } from '../src/payments/payments.dto';
 import { CheckoutService } from '../src/checkout/checkout.service';
 import { DatabaseService } from '../src/database/database.service';
+import { DevelopmentWorkflowSetup } from '../src/development/prepare-workflow';
 
 type TestBody=FinancialResultDto & AdminOrderDetailDto & AdminOrdersPageDto & {error:{code:string};url:string;access:string;holdId:string};
 async function fetch(...args:Parameters<typeof globalThis.fetch>){return await globalThis.fetch(...args) as Omit<Response,'json'>&{json():Promise<TestBody>};}
@@ -128,13 +129,52 @@ test('M4 sesión administrativa verifica rol, sesión vigente y MFA sin exponer 
   assert.equal((await request('session',{token:await token(outsider)})).status,403);
   const initial=await request('session',{token:await token(ownerSubject,{aal:'aal1'})});
   assert.equal(initial.status,200);assert.equal(initial.headers.get('cache-control'),'no-store');
-  assert.deepEqual(await initial.json(),{adminId:ownerId,role:'OWNER',mfaRequired:true,mfaVerifiedUntil:null});
+  assert.deepEqual(await initial.json(),{adminId:ownerId,role:'OWNER',mfaRequired:true,mfaVerifiedUntil:null,developmentAccessUntil:null});
   const verified=await request('session');assert.equal(verified.status,200);
   const body=await verified.json() as unknown as {role:string;mfaRequired:boolean;mfaVerifiedUntil:string};
   assert.equal(body.role,'OWNER');assert.equal(body.mfaRequired,false);assert.ok(Date.parse(body.mfaVerifiedUntil)>Date.now());
   const revoked=await token(ownerSubject,{aal:'aal1'}),payload=JSON.parse(Buffer.from(revoked.split('.')[1]!,'base64url').toString()) as {session_id:string};
   await db.query('DELETE FROM auth.sessions WHERE id=$1',[payload.session_id]);
   assert.equal((await request('session',{token:revoked})).status,401);
+});
+
+test('capacidad de desarrollo permite proceso AAL1 auditado; falla con token, admin, sesion o plazo incorrectos',async()=>{
+  const capability=randomBytes(32).toString('hex'),until=new Date(Date.now()+3600000).toISOString();
+  const config={...app.get<AppConfig>(APP_CONFIG),developmentMfaToken:capability,developmentMfaUntil:until};
+  const dev=await createApp(config),bad=await createApp({...config,developmentMfaToken:'a'.repeat(64)});
+  await dev.listen(0,'127.0.0.1');await bad.listen(0,'127.0.0.1');
+  const devBase=await dev.getUrl(),badBase=await bad.getUrl();
+  const jwt=await token(ownerSubject,{aal:'aal1',mfaAt:0}),sid=JSON.parse(Buffer.from(jwt.split('.')[1]!,'base64url').toString()).session_id as string;
+  await db.query("UPDATE auth.sessions SET aal='aal1',factor_id=NULL WHERE id=$1",[sid]);
+  const setupUrl=localDatabaseUrl(process.env.TEST_DATABASE_URL);setupUrl.pathname=`/${name}`;
+  const setup=new DevelopmentWorkflowSetup({...config,databaseUrl:setupUrl.toString(),developmentLocalReceipts:true});
+  assert.equal((await setup.prepare()).demo,true);assert.equal((await setup.prepare()).slug,'demo-prueba-completa');
+  try{
+    const options={token:jwt,api:devBase};
+    const session=await request('session',options);assert.equal(session.status,200);
+    const data=await session.json() as unknown as {mfaRequired:boolean;mfaVerifiedUntil:null;developmentAccessUntil:string};
+    assert.equal(data.mfaRequired,false);assert.equal(data.mfaVerifiedUntil,null);assert.equal(data.developmentAccessUntil,until);
+    assert.equal((await request('orders',options)).status,200);
+    assert.equal((await request('orders',{token:jwt})).status,403);
+    assert.equal((await request('orders',{token:jwt,api:badBase})).status,403);
+    assert.equal((await request('orders',{token:await token(staffSubject,{aal:'aal1',mfaAt:0}),api:devBase})).status,403);
+    const c=await order();
+    assert.equal((await request(`orders/${c.id}`,options)).status,200);
+    assert.equal((await request(`payment-reports/${c.reportId}/receipt`,options)).status,200);
+    const key=randomUUID(),body=approval(c);
+    assert.equal((await action(c,'approve',body,{...options,key})).status,200);
+    assert.equal((await action(c,'approve',body,{...options,key})).status,200);
+    assert.deepEqual(await counts(c),{available:7,reserved:0,sold:3});
+    const cancelled=await order();assert.equal((await action(cancelled,'cancel',cancellation(),options)).status,200);
+    assert.deepEqual(await counts(cancelled),{available:10,reserved:0,sold:0});
+    await assert.rejects(()=>app.get(DatabaseService).transaction(c=>c.query('SELECT * FROM sorteos.development_admin_access')));
+    assert.ok((await db.query("SELECT count(*)::int AS n FROM sorteos.audit_logs WHERE action='DEVELOPMENT_MFA_ACCESS'")).rows[0].n>0);
+    assert.ok(!JSON.stringify((await db.query('SELECT * FROM sorteos.audit_logs')).rows).includes(capability));
+    await db.query('DELETE FROM auth.sessions WHERE id=$1',[sid]);assert.equal((await request('orders',options)).status,401);
+    const another=await token(ownerSubject,{aal:'aal1',mfaAt:0});
+    await db.query("UPDATE sorteos.development_admin_access SET created_at=now()-interval '2 hours',expires_at=now()-interval '1 hour' WHERE token_hash=$1",[createHash('sha256').update(capability).digest('hex')]);
+    assert.equal((await request('orders',{token:another,api:devBase})).status,403);
+  }finally{await dev.close();await bad.close();}
 });
 
 test('sin JWT, fuera de allowlist, AAL1, MFA vencido/futuro o sesión de otro usuario no hay acceso financiero',async()=>{
@@ -276,6 +316,6 @@ test('recuperación B5 conserva datos Auth, retira solo sus políticas/permisos,
     assert.equal((await recovery.query("SELECT count(*)::int AS n FROM pg_tables WHERE schemaname='sorteos'")).rows[0].n,15);
     assert.equal((await recovery.query('SELECT count(*)::int AS n FROM auth.mfa_factors')).rows[0].n,1);
     assert.equal((await recovery.query("SELECT has_column_privilege('sorteos_runtime','auth.sessions','id','SELECT') AS allowed")).rows[0].allowed,false);
-    migrateLocal(url.toString());assert.equal((await recovery.query("SELECT count(*)::int AS n FROM pg_tables WHERE schemaname='sorteos'")).rows[0].n,16);
+    migrateLocal(url.toString());assert.equal((await recovery.query("SELECT count(*)::int AS n FROM pg_tables WHERE schemaname='sorteos'")).rows[0].n,17);
   }finally{await recovery.end();await root.query(`DROP DATABASE ${recoveryName} WITH(FORCE)`);}
 });

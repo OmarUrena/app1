@@ -1,5 +1,14 @@
 # Changelog
 
+## Proceso completo de desarrollo sin TOTP — 2026-11-06
+
+- Ampliación explícita solicitada por el propietario, proyecto no productivo: login, compra con archivo privado y decisiones administrativas bajo capacidad de servidor, administrador/sesión reales y vencimiento. Se mantienen roles, snapshots, reservas, conciliación e idempotencia. La API rechaza la configuración de excepción en staging/production y orígenes externos.
+- Aplicadas con respaldo/CLI oficial las migraciones `20261106203619_development_admin_access` y `20261106205731_development_demo_checkout`. Capacidad hasheada en tabla privada RLS, acceso auditado y sin permisos de lectura/escritura del runtime sobre concesiones. Ocho versiones sin pendientes, 17 tablas RLS y asesores sin avisos nuevos.
+- Preparación NestJS idempotente del OWNER existente, rifa/cuenta DEMO y PDF sintético; cuenta conserva is_demo/inactiva, sin números bancarios. Checkout DEMO solo durante la capacidad y para esa rifa. Comprobantes guardados realmente fuera de public mediante adaptador privado local de desarrollo; Supabase Storage productivo sigue pendiente.
+- OpenAPI/cliente 0.5.2 incorporan `developmentAccessUntil`, sin fingir MFA verificado. La web informa el modo y vencimiento; las pantallas anteriores abren órdenes con la autorización de la API. Recuperación vacía local actualizada; con datos se conserva histórico y se corrige hacia adelante.
+- Corregido cierre de API al procesar PDF en Node watch: se ignoran avisos internos de dependencias del worker y se valida el resultado sin exponer entrada. Regresión reproducida con WATCH_REPORT_DEPENDENCIES.
+- Verificación: 19/19 base API, 88/88 integración PostgreSQL (19 financieras), 16/16 navegador M4 y 45/45 web; lint/typecheck/builds aprobados. Formulario real en 3000 creó una orden DEMO pendiente con PDF privado y un número reservado; no se aprobó ni hubo transferencia real en remoto. Ventana actual hasta las 7:01 p. m. del 6 de noviembre, hora dominicana. Ver docs/DESARROLLO_PRUEBA_COMPLETA.md y ADR 0018.
+
 ## Prueba temporal local de login sin TOTP — 2026-11-06
 
 - Por petición del propietario, login/renovación AAL1 conducen a una confirmación de cuenta y sesión reales sin pedir TOTP durante una ventana local. La pantalla MFA ya abierta redirige a esa confirmación al recargar.
