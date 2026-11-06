@@ -6,6 +6,8 @@ Consolidación documental y revisión B5: 2026-11-05. Fuente única de estado de
 
 ## M4 — Integración administrativa web
 
+Actualización operativa 2026-11-06: con autorización explícita se aplicaron B3/B4/B5 al proyecto Supabase de B1/B2 y se arrancó la API local. Historial alineado, 16 tablas RLS, metadatos Auth limitados y ready 200 comprobados. El OWNER se conserva; faltan su login personal/TOTP y Storage privado real para probar comprobantes. Ver [ejecución y evidencia remota](MIGRACIONES_SUPABASE_B3_B5.md). Los pendientes fechados al final de B4/B5 son históricos y esta actualización sustituye únicamente su estado de aplicación remota.
+
 Fecha: 2026-11-05. Se mantienen las ocho operaciones B5 y se incorpora `GET /api/v1/admin/session`, con AdminGuard, allowlist, comprobación de sesión Auth y autorización financiera cuando MFA está vigente. Respuesta mínima de rol/necesidad de MFA; AAL1 no puede leer órdenes. OpenAPI/cliente pasan a 0.5.1. No hay migración nueva: usa los permisos de metadatos de B5.
 
 Regresión financiera y sesión ejecutada con PostgreSQL local aislado/SCRAM: **18/18 aprobadas**, sin omitidas. Comando: `powershell -NoProfile -File scripts/test-backend-local.ps1 -PasswordAuthentication -Port 54345 -TestScript test:payments`; evidencia local ignorada `.tmp/m4-payments.txt`. La instancia temporal se detuvo al terminar.

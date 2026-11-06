@@ -1,10 +1,11 @@
 import { CanActivate, ExecutionContext, ForbiddenException, Inject, Injectable,
   ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { isUUID } from 'class-validator';
-import { createRemoteJWKSet, jwtVerify } from 'jose';
+import { createRemoteJWKSet, customFetch, jwtVerify } from 'jose';
 import { Request } from 'express';
 import { APP_CONFIG, AppConfig } from '../config/config';
 import { DatabaseService } from '../database/database.service';
+import { fetchFromServer } from '../common/server-fetch';
 
 export interface AdminIdentity { id: string; authUserId: string; role: 'OWNER' | 'ADMIN' }
 export interface AdminProof {sessionId:string;aal:string;mfaAt:number}
@@ -15,7 +16,7 @@ export class AdminGuard implements CanActivate {
   private readonly jwks?: ReturnType<typeof createRemoteJWKSet>;
   constructor(@Inject(APP_CONFIG) private readonly config: AppConfig, private readonly db: DatabaseService) {
     if (config.supabaseUrl) this.jwks = createRemoteJWKSet(new URL('/auth/v1/.well-known/jwks.json',config.supabaseUrl),
-      { timeoutDuration:2000, cooldownDuration:30000, cacheMaxAge:600000 });
+      { timeoutDuration:2000, cooldownDuration:30000, cacheMaxAge:600000, [customFetch]:fetchFromServer });
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -52,7 +53,7 @@ export class AdminGuard implements CanActivate {
     // si el usuario fue eliminado del proveedor de Auth.
     let userResponse:Response;
     try {
-      userResponse=await fetch(`${this.config.supabaseUrl}/auth/v1/user`,{
+      userResponse=await fetchFromServer(`${this.config.supabaseUrl}/auth/v1/user`,{
         headers:{Authorization:`Bearer ${token}`,apikey:this.config.supabasePublishableKey},
         redirect:'error',signal:AbortSignal.timeout(2000),
       });

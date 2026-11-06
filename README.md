@@ -4,6 +4,12 @@
 
 El proyecto se desarrolla exclusivamente en `main`, desde esta carpeta. Backend, frontend y documentación se guardan juntos en commits de esa rama. No crear ramas por fase, por capa ni worktrees adicionales. Las referencias a `feat/*` en informes históricos se conservan para trazabilidad. Decisión: [ADR 0013](docs/decisions/0013-main-only.md).
 
+## Administración local — activada el 2026-11-06
+
+En esta máquina la web está configurada en live con Auth, las migraciones remotas B1–B5 están aplicadas y la API local responde en 3001. Abrir http://127.0.0.1:3000/admin/login con el usuario propietario previamente autorizado. En la primera entrada, configurar el autenticador y verificar el código TOTP. Actualmente no hay órdenes para revisar. No introducir contraseñas o códigos en el chat.
+
+El login personal requiere comprobación del propietario; la creación de órdenes/comprobantes requiere todavía configurar Storage privado real. [Operación, pruebas y límites](docs/MIGRACIONES_SUPABASE_B3_B5.md). Los `.env` locales no se publican en Git ni se incluyen al clonar el repositorio. Para volver a iniciar los servicios, usar `npm run dev:api` y `npm run dev:web` en terminales separadas desde esta raíz, evitando duplicar un servidor que ya esté activo.
+
 ## Proyecto integrado — 2026-11-05
 
 M4 añade administración web con login real, TOTP, bandeja, visor privado y decisiones de revisión sobre B5. Configurar las variables Auth de servidor de [apps/web/.env.example](apps/web/.env.example) y usar `/admin/login`. Guía operativa y prueba local integrada en [README web](apps/web/README.md); resultados y limitaciones en [estado frontend](docs/ESTADO_FRONTEND.md#m4). No hay despliegue ni cambios remotos por esta entrega.

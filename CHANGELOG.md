@@ -1,5 +1,14 @@
 # Changelog
 
+## Activación administrativa local con Supabase — 2026-11-06
+
+- Aplicadas B3/B4/B5 con autorización explícita, CLI oficial e historial original. B1/B2 y datos administrativos conservados; sin seeds ni nuevas órdenes.
+- Respaldo previo, segundo dry-run sin pendientes, 16 tablas RLS y permisos Auth limitados verificados. API local arrancada: ready 200 y administración anónima 401.
+- Web local cambiada de demo a live con la configuración publicable existente; formulario y redirección anónima verificados en Chromium. Configuración privada ignorada por Git.
+- Corregida la demora DNS local de Auth mediante familia HTTP configurable en servidor y Undici 7.30.2; TLS y límites conservados. JWKS frío 200 en 144 ms y login inválido real 401 en 1.124 ms. Ver ADR 0014.
+- Verificación: 14 pruebas base API, 18 financieras PostgreSQL y 42 web; lint, typecheck y builds aprobados, cliente generado sin cambios y auditoría de producción sin avisos.
+- Login/TOTP personal del OWNER y Storage real siguen pendientes. Sin despliegue, buckets nuevos o ventas; evidencia en docs/MIGRACIONES_SUPABASE_B3_B5.md.
+
 ## Consolidación Git en main — 2026-11-05
 
 - Todo el desarrollo integrado y M4 se guardan en main, con el historial previo backend/frontend conservado y un respaldo local del worktree antiguo.

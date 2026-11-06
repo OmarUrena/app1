@@ -1,5 +1,6 @@
 import { Inject, Injectable, ServiceUnavailableException, UnprocessableEntityException } from '@nestjs/common';
 import { APP_CONFIG, AppConfig } from '../config/config';
+import { fetchFromServer } from '../common/server-fetch';
 
 @Injectable()
 export class MediaService {
@@ -12,7 +13,7 @@ export class MediaService {
     if (!keys.length) throw new UnprocessableEntityException({code:'PUBLICATION_REQUIREMENTS_NOT_MET'});
     await Promise.all(keys.map(async key => {
       let response: Response;
-      try { response = await fetch(this.url(key), {method:'HEAD',redirect:'error',signal:AbortSignal.timeout(2000)}); }
+      try { response = await fetchFromServer(this.url(key), {method:'HEAD',redirect:'error',signal:AbortSignal.timeout(2000)}); }
       catch { throw new ServiceUnavailableException({code:'MEDIA_UNAVAILABLE'}); }
       if (!response.ok || !/^image\/(jpeg|png|webp|avif)(;|$)/.test(response.headers.get('content-type') ?? '')) {
         throw new UnprocessableEntityException({code:'INVALID_MEDIA'});

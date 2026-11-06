@@ -19,6 +19,7 @@
     "openapi": "node -r ts-node/register src/export-openapi.ts"
   },
   "dependencies": {
+    "undici": "7.30.2",
     "@nestjs/common": "^11.1.26",
     "@nestjs/core": "^11.1.26",
     "@nestjs/platform-express": "^11.1.26",

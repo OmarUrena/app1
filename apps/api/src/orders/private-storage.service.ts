@@ -1,6 +1,7 @@
 import { Inject, Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { APP_CONFIG, AppConfig } from '../config/config';
+import { fetchFromServer } from '../common/server-fetch';
 
 @Injectable()
 export class PrivateStorageService {
@@ -8,7 +9,7 @@ export class PrivateStorageService {
   constructor(@Inject(APP_CONFIG) private readonly config:AppConfig) {
     if(config.supabaseUrl&&config.storageKey)this.client=createClient(config.supabaseUrl,config.storageKey,{
       auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},
-      global:{fetch:(input,init)=>fetch(input,{...init,redirect:'error',signal:AbortSignal.timeout(5000)})},
+      global:{fetch:(input,init)=>fetchFromServer(input,{...init,redirect:'error',signal:AbortSignal.timeout(5000)})},
     });
   }
   private unavailable():never{throw new ServiceUnavailableException({code:'STORAGE_UNAVAILABLE'});}

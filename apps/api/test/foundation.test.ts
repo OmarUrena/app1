@@ -8,8 +8,29 @@ import { createApp, configureApp } from '../src/bootstrap';
 import { parseConfig } from '../src/config/config';
 import { SafeLogger } from '../src/common/logger';
 import { createDocument } from '../src/openapi';
+import { createServer } from 'node:http';
+import { AddressInfo } from 'node:net';
+import { fetchFromServer } from '../src/common/server-fetch';
 
 const config = parseConfig({ NODE_ENV: 'test', LOG_LEVEL: 'silent', SWAGGER_ENABLED: 'true' });
+
+test('HTTP saliente permite elegir IPv4 sin omitir errores de red ni cancelacion',async()=>{
+  const previous=process.env.HTTP_DNS_FAMILY;
+  const server=createServer((_req,res)=>{res.setHeader('content-type','application/json');res.end('{"ready":true}');});
+  await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));
+  const url=`http://localhost:${(server.address() as AddressInfo).port}/probe`;
+  try{
+    process.env.HTTP_DNS_FAMILY='6';
+    await assert.rejects(fetchFromServer(url,{signal:AbortSignal.timeout(2000)}));
+    process.env.HTTP_DNS_FAMILY='4';
+    const response=await fetchFromServer(url);assert.equal(response.status,200);assert.deepEqual(await response.json(),{ready:true});
+    await assert.rejects(fetchFromServer(url,{signal:AbortSignal.abort()}));
+    process.env.HTTP_DNS_FAMILY='invalid';assert.throws(()=>fetchFromServer(url),/HTTP_DNS_FAMILY/);
+  }finally{
+    if(previous===undefined)delete process.env.HTTP_DNS_FAMILY;else process.env.HTTP_DNS_FAMILY=previous;
+    server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));
+  }
+});
 let app: INestApplication;
 let base: string;
 

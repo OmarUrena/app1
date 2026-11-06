@@ -21,6 +21,7 @@
     "api:check-catalog": "node scripts/check-catalog-contract.mjs"
   },
   "dependencies": {
+    "undici": "7.30.2",
     "@supabase/supabase-js": "2.118.0",
     "@sorteos/api-client": "workspace:*",
     "next": "^16.0.0",

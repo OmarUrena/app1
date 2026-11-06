@@ -6,6 +6,7 @@ import { createClient, type Session } from "@supabase/supabase-js";
 import { createApiClient } from "@sorteos/api-client";
 import { readAdminEnvironment, readEnvironment } from "@/lib/config";
 import type { AdminSession } from "./types";
+import { fetchFromServer } from "@/lib/server-fetch";
 
 export const privateHeaders = { "Cache-Control": "private, no-store, max-age=0", "Pragma": "no-cache", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer" };
 export class AdminError extends Error {
@@ -22,7 +23,7 @@ export function authClient() {
   // No browser SDK, localStorage, service key, shared client or automatic background refresh.
   return createClient(config.url, config.publishableKey, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-    global: { fetch: (input, init) => fetch(input, { ...init, cache: "no-store", redirect: "error", signal: AbortSignal.timeout(10000) }) },
+    global: { fetch: (input, init) => fetchFromServer(input, { ...init, cache: "no-store", redirect: "error", signal: AbortSignal.timeout(10000) }) },
   });
 }
 export async function tokens() {
