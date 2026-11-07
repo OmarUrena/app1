@@ -2,28 +2,18 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { Alert, Badge, Button, Card, Input } from "@/components/ui";
+import { Alert, Button, Card, Input } from "@/components/ui";
+import { Icon } from "@/components/ui/icon";
 import { formatDate, formatMoney } from "@/lib/format";
 import { useHydrated } from "@/lib/use-hydrated";
-import { LogoutButton } from "./auth";
+import { AdminStatus } from "./frame";
+import { RaffleSelect } from "./raffle-select";
 import { AdminClientError, adminFetch, navigateAdmin } from "./client";
 import { OrderActions } from "./order-actions";
 import { actionLabel, reportLabel, statusLabel, statuses, type AdminOrder, type AdminSession, type OrderPage } from "./types";
+const orderDate = new Intl.DateTimeFormat("es-DO", { timeZone: "America/Santo_Domingo", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 
-export function AdminFrame({ session, children }: { session: AdminSession; children: React.ReactNode }) {
-  useEffect(() => {
-    const check = () => { void adminFetch("/admin/api/session").catch(error => { navigateAdmin(error instanceof AdminClientError && error.code === "MFA_REQUIRED" ? "/admin/mfa" : "/admin/login"); }); };
-    const focus = () => { if (document.visibilityState === "visible") check(); };
-    const restored = (event: PageTransitionEvent) => { if (event.persisted) navigateAdmin("/admin"); };
-    const interval = setInterval(check, 60000);
-    const until = session.developmentAccessUntil ?? session.mfaVerifiedUntil;
-    const deadline = until ? setTimeout(() => navigateAdmin("/admin/mfa"), Math.max(0, Date.parse(until) - Date.now())) : undefined;
-    document.addEventListener("visibilitychange", focus);
-    window.addEventListener("pageshow", restored);
-    return () => { clearInterval(interval); clearTimeout(deadline); document.removeEventListener("visibilitychange", focus); window.removeEventListener("pageshow", restored); };
-  }, [session.mfaVerifiedUntil, session.developmentAccessUntil]);
-  return <>{session.developmentAccessUntil && <Alert title="Prueba de desarrollo sin TOTP">Acceso temporal hasta {formatDate(session.developmentAccessUntil)}. Usa únicamente datos y comprobantes DEMO; no realices transferencias bancarias.</Alert>}<div className="admin-toolbar"><nav className="admin-toolbar" aria-label="Administración"><Link href="/admin" prefetch={false}>Resumen</Link><Link href="/admin/rifas" prefetch={false}>Rifas</Link><Link href="/admin/ordenes" prefetch={false}>Órdenes y revisión</Link><Link href="/admin/reportes" prefetch={false}>Reportes</Link></nav><span>Permiso: {session.role === "OWNER" ? "Propietario" : "Revisor"}</span><LogoutButton /></div>{children}</>;
-}
+export { AdminFrame } from "./frame";
 
 export function OrdersList() {
   const hydrated = useHydrated();
@@ -45,20 +35,18 @@ export function OrdersList() {
   function page(offset: number) {
     const params = new URLSearchParams(query); params.set("page", String(Number(params.get("page")) + offset)); setData(null); setError(""); setQuery(params.toString());
   }
-  return <><Card><h2>Filtrar órdenes</h2><form className="admin-filters" onSubmit={filter}>
+  return <><Card className="admin-filter-panel"><h2>Filtrar órdenes</h2><form className="admin-filters" onSubmit={filter}>
     <div className="field"><label htmlFor="status-filter">Estado</label><select id="status-filter" name="status" defaultValue="" disabled={!hydrated}><option value="">Todos</option>{Object.entries(statuses).map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select></div>
-    <Input id="raffle-filter" label="ID de rifa (opcional)" name="raffleId" maxLength={36} pattern="[a-fA-F0-9-]{36}" disabled={!hydrated} />
+    <RaffleSelect id="raffle-filter" disabled={!hydrated} />
     <Input id="from-filter" label="Creada desde" name="from" type="date" disabled={!hydrated} /><Input id="to-filter" label="Creada hasta" name="to" type="date" disabled={!hydrated} />
-    <Button type="submit" disabled={!hydrated}>Aplicar filtros</Button></form><p className="muted">Fechas en America/Santo_Domingo. La lista no incluye datos personales.</p></Card>
+    <Button type="submit" disabled={!hydrated}>Aplicar filtros</Button></form><p className="admin-filter-note">Fechas en hora dominicana. Abre una orden para consultar sus datos y revisar el comprobante.</p></Card>
     {error && <Alert title="No se pudo cargar la bandeja" tone="error">{error}<Button onClick={() => { setError(""); setVersion(v => v + 1); }}>Reintentar consulta</Button></Alert>}
     {!data && !error && <p role="status">Cargando órdenes…</p>}
-    {data && <><p role="status">{data.pagination.total ?? 0} órdenes encontradas</p><div className="admin-order-list">{data.items.map(order => <Card key={order.id}>
-      <div className="admin-toolbar"><Badge>{statusLabel(order.status)}</Badge><span>{formatDate(order.createdAt)}</span></div>
-      <h2>{order.raffleTitle}</h2><p className="order-code">{order.orderCode}</p><p>{order.quantity} boletos · {formatMoney(order.totalMinor)}</p>
-      {(order.duplicateReceiptCount > 0 || order.duplicateReferenceCount > 0) && <p className="admin-signal">Señales de posible duplicación: requieren revisión humana.</p>}
-      <Link className="button button-secondary" href={`/admin/ordenes/${order.id}`} prefetch={false}>Revisar orden <span className="sr-only">{order.orderCode}</span></Link>
-    </Card>)}</div>{data.items.length === 0 && <Card><h2>Sin órdenes para estos filtros</h2><p>Prueba otro estado o intervalo de fechas.</p></Card>}
-      <nav className="pagination" aria-label="Páginas de órdenes"><Button disabled={(data.pagination.page ?? 1) <= 1} onClick={() => page(-1)}>Anterior</Button><span>Página {data.pagination.page}</span><Button disabled={(data.pagination.page ?? 1) * (data.pagination.pageSize ?? 20) >= (data.pagination.total ?? 0)} onClick={() => page(1)}>Siguiente</Button></nav></>}
+    {data && <section className="admin-table-panel" aria-label="Bandeja de órdenes"><div className="admin-table-heading"><h2>Órdenes registradas</h2><span className="admin-table-count" role="status">{data.pagination.total ?? 0} órdenes encontradas</span></div><div className="admin-table-scroll" role="region" aria-label="Tabla de órdenes" tabIndex={0}><table className="admin-data-table"><thead><tr><th scope="col">Orden / fecha</th><th scope="col">Rifa</th><th scope="col" className="numeric">Boletos</th><th scope="col" className="numeric">Importe</th><th scope="col">Estado</th><th scope="col">Revisión</th><th scope="col"><span className="sr-only">Acciones</span></th></tr></thead><tbody>{data.items.map(order => <tr key={order.id}>
+      <th scope="row"><span className="table-code" title={order.orderCode}>{order.orderCode}</span><small>{orderDate.format(new Date(order.createdAt))}</small></th><td><span className="admin-table-raffle" title={order.raffleTitle}>{order.raffleTitle}</span></td><td className="numeric">{order.quantity}</td><td className="numeric"><strong>{formatMoney(order.totalMinor)}</strong></td><td><AdminStatus status={order.status}>{statusLabel(order.status)}</AdminStatus></td><td>{order.duplicateReceiptCount > 0 || order.duplicateReferenceCount > 0 ? <span className="admin-row-signal"><Icon name="shield" />Posible duplicado</span> : <span className="muted">Sin alertas de duplicación</span>}</td>
+      <td><Link className="admin-table-action" href={`/admin/ordenes/${order.id}`} aria-label={`Revisar orden ${order.orderCode}`} prefetch={false}>Revisar orden<Icon name="arrow" /></Link></td>
+    </tr>)}{data.items.length === 0 && <tr><td colSpan={7}><div className="admin-empty"><h2>Sin órdenes para estos filtros</h2><p>Prueba otro estado o intervalo de fechas.</p></div></td></tr>}</tbody></table></div>
+      <nav className="admin-pagination" aria-label="Páginas de órdenes"><span>{data.items.length ? `Mostrando ${((data.pagination.page ?? 1) - 1) * (data.pagination.pageSize ?? 20) + 1}–${Math.min((data.pagination.page ?? 1) * (data.pagination.pageSize ?? 20), data.pagination.total ?? 0)} de ${data.pagination.total ?? 0}` : "No hay resultados"}</span><div><Button className="button-secondary" disabled={(data.pagination.page ?? 1) <= 1} onClick={() => page(-1)}>Anterior</Button><span>Página {data.pagination.page}</span><Button className="button-secondary" disabled={(data.pagination.page ?? 1) * (data.pagination.pageSize ?? 20) >= (data.pagination.total ?? 0)} onClick={() => page(1)}>Siguiente</Button></div></nav></section>}
   </>;
 }
 
@@ -101,11 +89,11 @@ export function OrderDetail({ id, role }: { id: string; role: AdminSession["role
   }, [id, revision]);
   if (error) return <Alert title="No se pudo cargar la orden" tone="error">{error}<Button onClick={reload}>Actualizar detalle</Button></Alert>;
   if (!order) return <p role="status">Cargando detalle protegido…</p>;
-  return <><div className="admin-toolbar"><Badge>{statusLabel(order.status)}</Badge><Button className="button-secondary" onClick={reload}>Actualizar detalle</Button></div>
-    <div className="admin-detail-grid"><Card><h2>{order.raffleTitle}</h2><p className="order-code">{order.orderCode}</p><dl className="checkout-summary">
+  return <><div className="admin-record-toolbar"><Link href="/admin/ordenes" prefetch={false}>← Volver a órdenes</Link><Button className="button-secondary" onClick={reload}>Actualizar detalle</Button></div><div className="admin-order-overview"><div><p className="eyebrow">Orden registrada</p><h2>{order.orderCode}</h2><p>{order.raffleTitle}</p></div><div className="admin-order-overview-total"><AdminStatus status={order.status}>{statusLabel(order.status)}</AdminStatus><strong>{formatMoney(order.totalMinor)}</strong></div></div>
+    <div className="admin-detail-grid"><Card><h2>Información de la orden</h2><dl className="checkout-summary">
       <div><dt>Creada</dt><dd>{formatDate(order.createdAt)}</dd></div><div><dt>Cantidad</dt><dd>{order.quantity}</dd></div><div><dt>Total de la orden</dt><dd>{formatMoney(order.totalMinor)}</dd></div>
-      <div><dt>Comprador</dt><dd>{order.customer.name}</dd></div><div><dt>Teléfono</dt><dd>{order.customer.phone}</dd></div><div><dt>Correo</dt><dd>{order.customer.email ?? "No registrado en orden histórica"}</dd></div>
-      <div><dt>Referencia reportada</dt><dd>{order.paymentReport.reference}</dd></div><div><dt>Transferencia reportada</dt><dd>{formatDate(order.paymentReport.transferDate)}</dd></div><div><dt>Reporte de pago</dt><dd>{reportLabel(order.paymentReport.status)}</dd></div>
+      </dl><h3>Datos del comprador</h3><dl className="checkout-summary"><div><dt>Comprador</dt><dd>{order.customer.name}</dd></div><div><dt>Teléfono</dt><dd>{order.customer.phone}</dd></div><div><dt>Correo</dt><dd>{order.customer.email ?? "No registrado en orden histórica"}</dd></div>
+      </dl><h3>Transferencia reportada</h3><dl className="checkout-summary"><div><dt>Referencia reportada</dt><dd>{order.paymentReport.reference}</dd></div><div><dt>Transferencia reportada</dt><dd>{formatDate(order.paymentReport.transferDate)}</dd></div><div><dt>Reporte de pago</dt><dd>{reportLabel(order.paymentReport.status)}</dd></div>
       {order.paymentReport.verifiedAmountMinor !== null && <div><dt>Importe verificado</dt><dd>{formatMoney(order.paymentReport.verifiedAmountMinor)}</dd></div>}
       {order.paymentReport.bankConfirmationReference && <div><dt>Confirmación bancaria</dt><dd>{order.paymentReport.bankConfirmationReference}</dd></div>}
     </dl><h3>Números de la orden</h3><ul className="ticket-numbers" aria-label="Números de la orden">{order.ticketNumbers.map(n => <li key={n}>{n}</li>)}</ul><p>{order.status === "PAID" ? "Boletos vendidos tras verificación bancaria." : order.status === "CANCELLED" ? "La asignación se conserva como historial. Los boletos fueron liberados tras conciliación." : "Los números permanecen reservados sin vencimiento automático."}</p></Card>

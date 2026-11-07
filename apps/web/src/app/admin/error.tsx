@@ -1,6 +1,3 @@
 "use client";
-import { Alert, Button, ButtonLink, SectionContainer } from "@/components/ui";
-import { LogoutButton } from "@/features/admin/auth";
-export default function AdminErrorPage({ retry }: { error: Error; retry: () => void }) {
-  return <SectionContainer><div className="page-heading"><h1>No se pudo verificar el acceso</h1></div><Alert tone="error" title="Administración no disponible">La sesión, los permisos o los servicios no pudieron verificarse. No se muestran datos privados.</Alert><div className="admin-toolbar"><Button onClick={retry}>Volver a intentar</Button><ButtonLink href="/admin/login">Ir al acceso</ButtonLink><LogoutButton /></div></SectionContainer>;
-}
+import { Alert, Button, ButtonLink, Card } from "@/components/ui";
+export default function AdminError({ retry }: { error: unknown; retry: () => void }) { return <div className="admin-standalone"><Card><h1>No se pudo cargar la administración</h1><Alert title="La información no está disponible" tone="error">Vuelve a intentarlo. Si el problema continúa, regresa al panel para comprobar tu acceso.</Alert><div className="admin-toolbar"><Button onClick={retry}>Volver a intentar</Button><ButtonLink className="button-secondary" href="/admin" prefetch={false}>Ir al panel</ButtonLink></div></Card></div>; }

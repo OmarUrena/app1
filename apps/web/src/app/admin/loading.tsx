@@ -1,1 +1,1 @@
-export default function Loading() { return <div className="container page-heading" role="status">Verificando acceso administrativo…</div>; }
+export default function AdminLoading() { return <div className="admin-standalone" role="status"><div className="admin-loading-line" /><p>Cargando espacio de trabajo…</p></div>; }

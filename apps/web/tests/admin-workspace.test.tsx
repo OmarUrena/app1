@@ -1,0 +1,40 @@
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { beforeEach, expect, test, vi } from "vitest";
+import { OrdersList } from "@/features/admin/orders";
+import { AdminFrame } from "@/features/admin/frame";
+import { adminFetch } from "@/features/admin/client";
+import type { AdminSession } from "@/features/admin/types";
+vi.mock("next/navigation", () => ({ usePathname: () => "/admin/ordenes" }));
+vi.mock("@/lib/use-hydrated", () => ({ useHydrated: () => true }));
+vi.mock("@/features/admin/client", async original => ({ ...await original<typeof import("@/features/admin/client")>(), adminFetch: vi.fn() }));
+const raffleId = "00000000-0000-4000-8000-000000000100";
+const row = { id: "00000000-0000-4000-8000-000000000200", orderCode: "RF-ORDEN-DEMO", raffleTitle: "RIFA DEMO", status: "PENDING_REVIEW", createdAt: "2026-11-06T12:00:00Z", quantity: 2, totalMinor: 20000, duplicateReceiptCount: 0, duplicateReferenceCount: 0 };
+beforeEach(() => { vi.mocked(adminFetch).mockReset(); });
+test("órdenes en tabla semántica y filtro de rifa por nombre envían el UUID solo a la API", async () => {
+  vi.mocked(adminFetch).mockImplementation(async path => path.startsWith("/admin/api/raffles") ? { items: [{ id: raffleId, title: "RIFA DEMO" }], pagination: { total: 1 } } : { items: [row], pagination: { page: 1, pageSize: 20, total: 1 } });
+  render(<OrdersList />);
+  const table = await screen.findByRole("table");
+  expect(within(table).getByRole("columnheader", { name: "Importe" })).toBeInTheDocument();
+  expect(within(table).getByRole("rowheader", { name: /RF-ORDEN-DEMO/ })).toBeInTheDocument();
+  expect(within(table).getByRole("link", { name: /Revisar orden RF-ORDEN-DEMO/ })).toHaveAttribute("href", `/admin/ordenes/${row.id}`);
+  await screen.findByRole("option", { name: "RIFA DEMO" });
+  fireEvent.change(screen.getByLabelText("Rifa", { exact: true }), { target: { value: raffleId } });
+  fireEvent.click(screen.getByRole("button", { name: "Aplicar filtros" }));
+  await waitFor(() => expect(adminFetch).toHaveBeenCalledWith(expect.stringContaining(`raffleId=${raffleId}`)));
+});
+test("una bandeja vacía mantiene cabeceras y comunica el estado sin inventar órdenes", async () => {
+  vi.mocked(adminFetch).mockResolvedValue({ items: [], pagination: { page: 1, pageSize: 20, total: 0 } });
+  render(<OrdersList />);
+  expect(await screen.findByRole("heading", { name: "Sin órdenes para estos filtros" })).toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: /Revisar orden/ })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Siguiente" })).toBeDisabled();
+});
+test("el espacio administrativo marca la sección activa y permite abrir navegación móvil", () => {
+  const session = { adminId: "test", role: "OWNER", mfaRequired: false, mfaVerifiedUntil: new Date(Date.now() + 600000).toISOString(), developmentAccessUntil: null } as AdminSession;
+  render(<AdminFrame session={session}><h1>Gestión de órdenes</h1></AdminFrame>);
+  const nav = screen.getByRole("navigation", { name: "Administración" });
+  expect(within(nav).getByRole("link", { name: "Órdenes y revisión" })).toHaveAttribute("aria-current", "page");
+  const menu = screen.getByRole("button", { name: "Abrir navegación" });
+  fireEvent.click(menu); expect(menu).toHaveAttribute("aria-expanded", "true");
+  expect(screen.queryByRole("navigation", { name: "Navegación principal" })).not.toBeInTheDocument();
+});

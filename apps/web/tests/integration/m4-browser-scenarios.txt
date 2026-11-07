@@ -153,7 +153,7 @@ test('M4: web, API, PostgreSQL, JWT/JWKS y adaptadores locales Auth/Storage', {t
     });
     await t.test('fallo del proveedor al cerrar elimina cookies y explica la revocación pendiente',async()=>{
       const isolated=await browser.newContext();contexts.push(isolated);const view=await isolated.newPage();await login(view);const previous=(await isolated.cookies()).filter((c:any)=>c.name.startsWith('sorteos_admin_')&&!c.name.endsWith('signed_out'));m4LogoutFailure=true;
-      try{await view.getByRole('button',{name:'Cerrar sesión',exact:true}).click();await view.waitForURL('**/admin/login?cierre=pendiente');await view.getByText('Revocación remota pendiente',{exact:true}).waitFor();assert.equal((await isolated.cookies()).filter((c:any)=>c.name.startsWith('sorteos_admin_')&&!c.name.endsWith('signed_out')).length,0);
+      try{if(!await view.getByRole('button',{name:'Cerrar sesión',exact:true}).isVisible())await view.getByRole('button',{name:'Abrir navegación',exact:true}).click();await view.getByRole('button',{name:'Cerrar sesión',exact:true}).click();await view.waitForURL('**/admin/login?cierre=pendiente');await view.getByText('Revocación remota pendiente',{exact:true}).waitFor();assert.equal((await isolated.cookies()).filter((c:any)=>c.name.startsWith('sorteos_admin_')&&!c.name.endsWith('signed_out')).length,0);
         // Simulate a refresh response that was already in flight before logout.
         await isolated.addCookies(previous);assert.equal((await isolated.request.get(origin+'/admin/api/orders')).status(),401);
       }finally{m4LogoutFailure=false;}
@@ -187,7 +187,7 @@ test('M4: web, API, PostgreSQL, JWT/JWKS y adaptadores locales Auth/Storage', {t
         const decision=await previewContext.request.post(previewOrigin+'/admin/api/orders/'+randomUUID()+'/approve',{headers:{Origin:previewOrigin,'Idempotency-Key':randomUUID()},data:{expectedVersion:1}});
         assert.equal(decision.status(),403);assert.equal((await decision.json()).error.code,'MFA_REQUIRED');
         await view.goto(previewOrigin+'/admin/mfa');await view.waitForURL('**/admin/prueba-acceso');
-        await view.getByRole('button',{name:'Cerrar sesión',exact:true}).click();await view.waitForURL('**/admin/login');
+        if(!await view.getByRole('button',{name:'Cerrar sesión',exact:true}).isVisible())await view.getByRole('button',{name:'Abrir navegación',exact:true}).click();await view.getByRole('button',{name:'Cerrar sesión',exact:true}).click();await view.waitForURL('**/admin/login');
         await view.goto(previewOrigin+'/admin/prueba-acceso');await view.waitForURL('**/admin/login');
       }finally{
         if(child.exitCode===null){child.kill();await Promise.race([new Promise(r=>child.once('exit',r)),new Promise(r=>setTimeout(r,5000))]);}

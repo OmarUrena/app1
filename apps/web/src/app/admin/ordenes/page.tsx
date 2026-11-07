@@ -1,7 +1,8 @@
-import { SectionContainer } from "@/components/ui";
-import { AdminFrame, OrdersList } from "@/features/admin/orders";
+import { AdminFrame, AdminPageHeading } from "@/features/admin/frame";
+import { OrdersList } from "@/features/admin/orders";
 import { requireAdmin } from "@/features/admin/server";
+export const metadata = { title: "Gestión de órdenes" };
 export default async function OrdersPage() {
   const session = await requireAdmin();
-  return <SectionContainer><div className="page-heading"><p className="eyebrow">Administración</p><h1>Revisión de órdenes</h1><p>Conciliación manual de transferencias y comprobantes.</p></div><AdminFrame session={session}><OrdersList /></AdminFrame></SectionContainer>;
+  return <AdminFrame session={session}><AdminPageHeading title="Gestión de órdenes" description="Consulta las compras y revisa los pagos reportados por tus clientes." /><OrdersList /></AdminFrame>;
 }

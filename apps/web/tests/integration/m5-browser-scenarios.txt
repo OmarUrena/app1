@@ -2,14 +2,15 @@ test('M5: editor, imágenes propias, compra, cierre, conciliación, indicadores 
   const {chromium,expect}=m4Playwright,fs=require('node:fs'),path=require('node:path');
   // Compile shared client chunks before opening tabs: next dev can reload an existing
   // page while another route is first compiled. This is harness setup, not a retry.
-  const warmed=await Promise.allSettled(['/rifas/no-existe','/rifas/no-existe/participar','/orden/confirmacion','/admin','/admin/rifas/nueva','/admin/rifas/'+randomUUID(),'/admin/reportes','/admin/api/raffles'].map(route=>globalThis.fetch(origin+route,{signal:AbortSignal.timeout(30000)})));
+  const warmed=await Promise.allSettled(['/rifas/no-existe','/rifas/no-existe/participar','/orden/confirmacion','/admin','/admin/mfa','/admin/ordenes/'+randomUUID(),'/admin/rifas/nueva','/admin/rifas/'+randomUUID(),'/admin/reportes','/admin/api/raffles'].map(route=>globalThis.fetch(origin+route,{signal:AbortSignal.timeout(45000)})));
   for(const result of warmed){assert.equal(result.status,'fulfilled');if(result.status==='fulfilled')assert.ok([200,401,404].includes(result.value.status));}
   const browser=await chromium.launch(),context=await browser.newContext({viewport:{width:1280,height:900}}),page=await context.newPage();
   const buyer=await browser.newContext({viewport:{width:390,height:844}}),purchase=await buyer.newPage();
-  page.setDefaultTimeout(15000);purchase.setDefaultTimeout(15000);
-  const screenshots=path.join(m4Workspace,'docs/frontend/screenshots/m5');fs.mkdirSync(screenshots,{recursive:true});
+  page.setDefaultTimeout(15000);purchase.setDefaultTimeout(15000);page.setDefaultNavigationTimeout(45000);purchase.setDefaultNavigationTimeout(45000);
+  const screenshots=path.join(m4Workspace,'docs/frontend/screenshots',process.env.ADMIN_VISUAL_QA==='1'?'admin-redesign':'m5');fs.mkdirSync(screenshots,{recursive:true});
   let raffleId:string,code:string,orderId:string;
   const slug='m5-'+randomUUID();
+  async function snapshot(name:string){await page.evaluate(()=>{if(document.activeElement instanceof HTMLElement)document.activeElement.blur();window.scrollTo({top:0,behavior:'instant'});});await page.screenshot({path:path.join(screenshots,name),fullPage:true});}
   async function login(view:any,email='owner@example.invalid'){
     await view.goto(origin+'/admin/login');await view.getByLabel('Correo administrativo').fill(email);await view.getByLabel('Contraseña',{exact:true}).fill(m4Password);await view.getByRole('button',{name:'Iniciar sesión',exact:true}).click();await view.waitForURL('**/admin/mfa');await view.getByLabel('Código de autenticación').fill('123456');await view.getByRole('button',{name:'Verificar código',exact:true}).click();await view.waitForURL('**/admin/ordenes');
   }
@@ -17,19 +18,20 @@ test('M5: editor, imágenes propias, compra, cierre, conciliación, indicadores 
   try{
     await t.test('login real, alta web con imagen normalizada, vista previa y publicación con aprobación',async()=>{
       await login(page);await page.getByRole('navigation',{name:'Administración'}).getByRole('link',{name:'Rifas',exact:true}).click();await page.getByRole('link',{name:'Crear rifa',exact:true}).click();
-      await page.getByLabel('Título',{exact:true}).fill('RIFA DEMO M5');await page.getByLabel('Identificador de la página').fill(slug);await page.getByLabel('Descripción',{exact:true}).fill('Prueba integrada sin premio ni transferencia reales.');await page.getByLabel('Premio',{exact:true}).fill('PREMIO DEMO M5');await page.getByLabel('Reglas de la rifa').fill('SOLO DEMOSTRACIÓN M5. NO TRANSFERIR DINERO REAL.');
+      await page.getByLabel('Título',{exact:true}).fill('RIFA DEMO M5');await page.getByLabel('Enlace de la rifa').fill(slug);await page.getByLabel('Descripción',{exact:true}).fill('Prueba integrada sin premio ni transferencia reales.');await page.getByLabel('Premio',{exact:true}).fill('PREMIO DEMO M5');await page.getByLabel('Reglas de la rifa').fill('SOLO DEMOSTRACIÓN M5. NO TRANSFERIR DINERO REAL.');
       await page.getByLabel('Añadir fotografía propia').setInputFiles({name:'foto-propia.png',mimeType:'image/png',buffer:png});await page.getByLabel('Descripción de foto 1').waitFor();await page.getByLabel('Tengo derechos para publicar esta foto.').check();
       await page.getByRole('button',{name:'Vista previa',exact:true}).click();await page.getByText('Vista previa · no publica la rifa',{exact:true}).waitFor();
-      await page.getByRole('button',{name:'Guardar borrador y cambios',exact:true}).click();await page.waitForURL(/\/admin\/rifas\/[a-f0-9-]{36}$/);raffleId=page.url().split('/').pop()!;
+      await snapshot('formulario-desktop.png');
+      await page.getByRole('button',{name:'Guardar borrador',exact:true}).click();await page.waitForURL(/\/admin\/rifas\/[a-f0-9-]{36}$/);raffleId=page.url().split('/').pop()!;
       await expect(page.getByLabel('Cantidad total de números')).toBeDisabled();await expect(page.getByLabel('Precio por número en RD$')).toBeEnabled();
       await transition('Publicar rifa');await page.getByRole('link',{name:'Ver página pública',exact:true}).waitFor();
-      await transition('Pausar rifa');await expect(page.getByLabel('Descripción',{exact:true})).toBeEnabled();await page.getByLabel('Descripción',{exact:true}).fill('Descripción DEMO M5 actualizada, sin transferencia real.');await page.getByRole('button',{name:'Guardar borrador y cambios',exact:true}).click();await page.getByText('Rifa actualizada.',{exact:true}).waitFor();await transition('Reanudar rifa');await page.getByRole('link',{name:'Ver página pública',exact:true}).waitFor();
+      await transition('Pausar rifa');await expect(page.getByLabel('Descripción',{exact:true})).toBeEnabled();await page.getByLabel('Descripción',{exact:true}).fill('Descripción DEMO M5 actualizada, sin transferencia real.');await page.getByRole('button',{name:'Guardar cambios',exact:true}).click();await page.getByText('Rifa actualizada.',{exact:true}).waitFor();await transition('Reanudar rifa');await page.getByRole('link',{name:'Ver página pública',exact:true}).waitFor();
       await purchase.goto(origin+'/rifas/'+slug);await purchase.getByRole('heading',{name:'RIFA DEMO M5',exact:true}).waitFor();
       await expect(purchase.locator('.gallery-main img')).toBeVisible();
       const image=await buyer.request.get(await purchase.locator('.gallery-main img').getAttribute('src'));assert.equal(image.status(),200);assert.equal(image.headers()['cross-origin-resource-policy'],'cross-origin');
       await expect.poll(()=>purchase.locator('.gallery-main img').evaluate((img:any)=>img.naturalWidth)).toBeGreaterThan(0);
       const publicRow=await fetch(base+'/api/v1/raffles/'+slug);assert.equal(publicRow.status,200);
-      await page.screenshot({path:path.join(screenshots,'editor-desktop.png'),fullPage:true});
+      await snapshot('editor-desktop.png');
     });
     if(!raffleId)throw new Error('No se creó la rifa; detener los pasos dependientes.');
     await t.test('pre-reserva vigente bloquea cierre; pausa permite enviar orden con comprobante',async()=>{
@@ -52,12 +54,13 @@ test('M5: editor, imágenes propias, compra, cierre, conciliación, indicadores 
       await purchase.reload();await purchase.getByRole('heading',{name:'Pago confirmado.',exact:true}).waitFor();
       assert.equal((await globalThis.fetch(base+'/api/v1/orders/'+code)).status,401);
       const summary=await (await request('raffles/'+raffleId+'/summary')).json() as any;assert.equal(summary.confirmedAmountMinor,'20000');assert.equal(summary.pendingAmountMinor,'0');assert.equal(summary.sold,2);assert.equal(summary.available,98);
-      await page.goto(origin+'/admin');await page.getByText('RD$ 200.00',{exact:true}).waitFor();await page.screenshot({path:path.join(screenshots,'resumen-desktop.png'),fullPage:true});
-      await page.setViewportSize({width:390,height:844});await page.screenshot({path:path.join(screenshots,'resumen-movil.png'),fullPage:true});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+      await page.goto(origin+'/admin/ordenes');await page.getByRole('table').waitFor();await snapshot('ordenes-desktop.png');assert.equal(await page.locator('.header, .footer, .bottom-nav, .environment-note').count(),0);await expect(page.getByRole('columnheader',{name:'Importe',exact:true})).toBeVisible();
+      await page.goto(origin+'/admin');await page.getByText('RD$ 200.00',{exact:true}).waitFor();await snapshot('resumen-desktop.png');
+      await page.setViewportSize({width:390,height:844});await snapshot('resumen-movil.png');assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
       const AxeBuilder=m4WebRequire('@axe-core/playwright').default;const axe=await new AxeBuilder({page}).analyze();assert.deepEqual(axe.violations.filter((v:any)=>['critical','serious'].includes(v.impact)).map((v:any)=>({id:v.id,nodes:v.nodes.map((n:any)=>n.target)})),[]);
     });
     await t.test('exportación descargable sin PII, CSRF rechazado y autorización también en API',async()=>{
-      await page.goto(origin+'/admin/reportes');await page.getByLabel('ID de rifa',{exact:true}).fill(raffleId);const downloaded=page.waitForEvent('download');await page.getByRole('button',{name:'Descargar CSV',exact:true}).click();const download=await downloaded,csv=fs.readFileSync(await download.path(),'utf8');assert.ok(csv.includes(code));assert.ok(!csv.includes('m5-demo@example.invalid'));assert.ok(!csv.includes('CLIENTE DEMO'));assert.equal(csv.trim().split('\r\n').length,2);
+      await page.getByRole('button',{name:'Abrir navegación',exact:true}).click();await expect(page.getByRole('navigation',{name:'Administración'})).toBeVisible();await page.getByRole('navigation',{name:'Administración'}).getByRole('link',{name:'Reportes',exact:true}).click();await page.waitForURL('**/admin/reportes');await page.getByLabel('Rifa',{exact:true}).selectOption(raffleId);const downloaded=page.waitForEvent('download');await page.getByRole('button',{name:'Descargar CSV',exact:true}).click();const download=await downloaded,csv=fs.readFileSync(await download.path(),'utf8');assert.ok(csv.includes(code));assert.ok(!csv.includes('m5-demo@example.invalid'));assert.ok(!csv.includes('CLIENTE DEMO'));assert.equal(csv.trim().split('\r\n').length,2);
       assert.equal((await context.request.patch(origin+'/admin/api/raffles/'+raffleId,{headers:{Origin:'https://untrusted.invalid'},data:{title:'NO'}})).status(),403);
       assert.equal((await context.request.post(origin+'/admin/api/raffles/'+raffleId+'/arbitrary',{headers:{Origin:origin},data:{}})).status(),404);
       assert.equal((await request('reports/orders.csv',{token:staffToken})).status,403);

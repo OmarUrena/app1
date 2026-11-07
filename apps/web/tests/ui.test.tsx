@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { Button, Input } from "@/components/ui";
 import { ToastProvider, useToast } from "@/components/ui/toast";
-import ErrorPage from "@/app/error";
+import ErrorPage from "@/app/(public)/error";
 
 test("input vincula etiqueta, ayuda y error para lectores de pantalla", () => {
   render(<Input id="quantity" label="Cantidad" hint="Indica la cantidad" error="Cantidad no válida" />);

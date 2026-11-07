@@ -1,5 +1,12 @@
 # Changelog
 
+## Administración con estructura empresarial — 2026-11-06
+
+- Layout independiente del sitio público: navegación lateral, área de trabajo clara, títulos sans serif, controles legibles y menú móvil propio. El catálogo conserva sus URLs y presentación dentro de app/(public).
+- Órdenes y rifas en tablas semánticas con paginación, estados, importes y acciones. Los filtros de rifa muestran nombres mediante consultas paginadas reales.
+- Editor organizado en cuatro secciones, guardado separado de publicación, barra de acciones y motivos de bloqueo visibles. Detalle de orden, diálogos financieros, reportes, login y MFA adaptados al nuevo sistema visual.
+- Sin cambios de negocio, datos o contrato; se conservan autorización, revisión bancaria e idempotencia. Evidencia actual en docs/ADMINISTRACION_VISUAL.md y ADR 0021.
+
 ## Migración M5 autorizada — 2026-11-06
 
 - Aplicada únicamente `20261106232520_operations_m5` en Supabase tras autorización expresa, con respaldo y hashes verificados. Nueve migraciones y dry-run sin pendientes.

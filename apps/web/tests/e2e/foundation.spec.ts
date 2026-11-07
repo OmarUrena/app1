@@ -5,7 +5,10 @@ for (const path of ["/", "/rifas", "/admin/login", "/rifas/suv-premium-demo", "/
   test(`${path}: navegación accesible, demo y sin desbordamiento`, async ({ page }, testInfo) => {
     await page.goto(path);
     await expect(page.getByRole("main")).toBeVisible();
-    await expect(page.getByText("DEMO · Sin transacciones reales")).toBeVisible();
+    if (path.startsWith("/admin")) {
+      await expect(page.locator(".header, .footer, .bottom-nav, .environment-note")).toHaveCount(0);
+      await expect(page.getByRole("heading", { name: "Administración", exact: true })).toBeVisible();
+    } else await expect(page.getByText("DEMO · Sin transacciones reales")).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     const result = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
     expect(result.violations).toEqual([]);

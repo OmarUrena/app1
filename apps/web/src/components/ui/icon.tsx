@@ -1,6 +1,10 @@
 import type { ReactNode, SVGProps } from "react";
 
 const shapes = {
+  dashboard: <><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></>,
+  orders: <><rect x="5" y="4" width="14" height="17" rx="2" /><path d="M9 4V2h6v2M9 9h6M9 13h6M9 17h4" /></>,
+  report: <><path d="M4 3h11l5 5v13H4V3ZM14 3v6h6M8 17v-4m4 4v-6m4 6v-2" /></>,
+  external: <><path d="M14 3h7v7m0-7L10 14M10 3H4a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-6" /></>,
   crown: <><path d="m3 6 4 4 5-6 5 6 4-4-2 12H5L3 6Z" /><path d="M6 21h12" /></>,
   arrow: <><path d="M4 12h16m-6-6 6 6-6 6" /></>,
   back: <path d="m14 5-7 7 7 7" />,

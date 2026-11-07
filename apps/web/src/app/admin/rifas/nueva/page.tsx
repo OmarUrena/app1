@@ -1,5 +1,5 @@
-import { SectionContainer } from "@/components/ui";
-import { AdminFrame } from "@/features/admin/orders";
+import { AdminFrame, AdminPageHeading } from "@/features/admin/frame";
 import { RaffleEditor } from "@/features/admin/raffle-editor";
 import { requireAdmin } from "@/features/admin/server";
-export default async function NewRafflePage() { const session = await requireAdmin(); return <SectionContainer><div className="page-heading"><p className="eyebrow">Administración</p><h1>Crear rifa</h1><p>Guarda primero un borrador y revisa los requisitos antes de publicarlo.</p></div><AdminFrame session={session}><RaffleEditor role={session.role} /></AdminFrame></SectionContainer>; }
+export const metadata = { title: "Crear rifa" };
+export default async function NewRafflePage() { const session = await requireAdmin(); return <AdminFrame session={session}><AdminPageHeading title="Crear rifa" section="Catálogo" description="Completa la información y guarda un borrador. La publicación se confirma por separado." /><RaffleEditor role={session.role} /></AdminFrame>; }

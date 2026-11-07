@@ -1,5 +1,15 @@
 # App Sorteos — paquete de implementación progresiva para Codex
 
+## Panel administrativo
+
+La administración tiene estructura y estilo propios, separados del sitio público:
+navegación lateral, resumen gerencial, tablas de órdenes/rifas, formularios por
+secciones y filtros por nombre de rifa. En móvil, abre el menú de navegación;
+las tablas desplazan horizontalmente sin desbordar la página.
+
+Acceso: `/admin/login`. Operación: `/admin`, `/admin/ordenes`, `/admin/rifas`
+y `/admin/reportes`. Ver [revisión visual y pruebas](docs/ADMINISTRACION_VISUAL.md).
+
 ## M5: administración de rifas y operación diaria
 
 En `/admin`, el resumen separa ingresos confirmados y pendientes; `/admin/rifas`
