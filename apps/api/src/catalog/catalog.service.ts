@@ -131,6 +131,7 @@ export class CatalogService {
     return this.db.transaction(async client=>{
       await this.context(client,actor,requestId);
       const old = await this.row(client,id,false,false,true);
+      if(input.expectedVersion!==undefined&&input.expectedVersion!==old.version)throw new ConflictException({code:'CONCURRENT_MODIFICATION'});
       if (!['DRAFT','PAUSED'].includes(old.status)) throw new ConflictException({code:'RAFFLE_NOT_EDITABLE'});
       const current = await this.map(client,old,true);
       if ((input.totalTickets!==undefined && input.totalTickets!==old.total_tickets)

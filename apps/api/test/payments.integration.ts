@@ -17,6 +17,9 @@ import { AdminOrderDetailDto, AdminOrdersPageDto, FinancialResultDto } from '../
 import { CheckoutService } from '../src/checkout/checkout.service';
 import { DatabaseService } from '../src/database/database.service';
 import { DevelopmentWorkflowSetup } from '../src/development/prepare-workflow';
+import { OperationSummaryDto } from '../src/operations/operations.dto';
+import { csvCell } from '../src/operations/operations.service';
+import { FinancialAuthorization } from '../src/auth/financial.guard';
 
 type TestBody=FinancialResultDto & AdminOrderDetailDto & AdminOrdersPageDto & {error:{code:string};url:string;access:string;holdId:string};
 async function fetch(...args:Parameters<typeof globalThis.fetch>){return await globalThis.fetch(...args) as Omit<Response,'json'>&{json():Promise<TestBody>};}
@@ -28,6 +31,7 @@ let root:Client,db:Client,server:Server,app:INestApplication,peer:INestApplicati
 let connected=false,created=false,loginCreated=false,base:string,peerBase:string,issuer:string,png:Buffer;
 let keys:Awaited<ReturnType<typeof generateKeyPair>>,ownerToken:string,staffToken:string;
 let onDownload:(()=>Promise<void>)|undefined,publicBucket=false,downloadCount=0;
+let publicPrizeBucket=true;
 async function authFixture(c:Client) {
   await c.query(`CREATE SCHEMA auth;
     CREATE TABLE auth.mfa_factors(id uuid PRIMARY KEY,user_id uuid NOT NULL,status text NOT NULL,factor_type text NOT NULL,secret text DEFAULT 'DO_NOT_READ');
@@ -64,7 +68,15 @@ before(async()=>{
         const verified=await jwtVerify(req.headers.authorization?.slice(7)??'',keys.publicKey,{issuer:`${issuer}/auth/v1`,audience:'authenticated'});
         res.setHeader('content-type','application/json');res.end(JSON.stringify({id:verified.payload.sub,is_anonymous:false}));return;
       }
+      if(req.method==='HEAD'&&req.url?.startsWith('/storage/v1/object/public/raffle-media/prizes/')){
+        res.writeHead(objects.has('media:'+req.url.slice('/storage/v1/object/public/raffle-media/'.length))?200:404,{'content-type':'image/webp'});res.end();return;
+      }
       assert.equal(req.headers.apikey,'sb_secret_b5_fixture_server_only');
+      if(req.method==='GET'&&req.url==='/storage/v1/bucket/raffle-media'){res.setHeader('content-type','application/json');res.end(JSON.stringify({id:'raffle-media',name:'raffle-media',public:publicPrizeBucket}));return;}
+      if(req.method==='POST'&&req.url?.startsWith('/storage/v1/object/raffle-media/prizes/')){
+        const chunks:Buffer[]=[];for await(const chunk of req)chunks.push(Buffer.from(chunk));
+        const path=req.url.slice('/storage/v1/object/raffle-media/'.length);objects.set('media:'+path,Buffer.concat(chunks));res.setHeader('content-type','application/json');res.end(JSON.stringify({Key:`raffle-media/${path}`}));return;
+      }
       if(req.method==='GET'&&req.url==='/storage/v1/bucket/receipts'){res.setHeader('content-type','application/json');res.end(JSON.stringify({id:'receipts',name:'receipts',public:publicBucket}));return;}
       if(req.method==='POST'&&req.url?.startsWith('/storage/v1/object/receipts/pending/')){
         const chunks:Buffer[]=[];for await(const chunk of req)chunks.push(Buffer.from(chunk));
@@ -323,4 +335,88 @@ test('recuperación B5 conserva datos Auth, retira solo sus políticas/permisos,
     assert.equal((await recovery.query("SELECT has_column_privilege('sorteos_runtime','auth.sessions','id','SELECT') AS allowed")).rows[0].allowed,false);
     migrateLocal(url.toString());assert.equal((await recovery.query("SELECT count(*)::int AS n FROM pg_tables WHERE schemaname='sorteos'")).rows[0].n,17);
   }finally{await recovery.end();await root.query(`DROP DATABASE ${recoveryName} WITH(FORCE)`);}
+});
+
+test('M5 indicadores separan inventario, ingreso confirmado y pendiente; lectura privada auditada',async()=>{
+  const c=await order(2);
+  const result=await request(`raffles/${c.raffle}/summary`);assert.equal(result.status,200);
+  const first=await result.json() as unknown as OperationSummaryDto;
+  assert.deepEqual([first.total,first.available,first.held,first.reserved,first.sold],[10,8,0,2,0]);
+  assert.equal(first.confirmedAmountMinor,'0');assert.equal(first.pendingAmountMinor,String(c.total));assert.equal(first.pendingOrders,1);
+  assert.equal((await action(c,'request-resolution',{reason:'Conciliación pendiente en pruebas M5.',reportStatus:'DISPUTED'})).status,200);
+  const disputed=await (await request(`raffles/${c.raffle}/summary`)).json() as unknown as OperationSummaryDto;
+  assert.equal(disputed.openIncidents,1);assert.equal(disputed.reserved,2);assert.equal(disputed.confirmedAmountMinor,'0');
+  const current=(await db.query('SELECT version FROM sorteos.orders WHERE id=$1',[c.id])).rows[0];
+  assert.equal((await action({...c,version:current.version},'approve',approval(c))).status,200);
+  const paid=await (await request(`raffles/${c.raffle}/summary`)).json() as unknown as OperationSummaryDto;
+  assert.equal(paid.confirmedAmountMinor,String(c.total));assert.equal(paid.pendingAmountMinor,'0');assert.equal(paid.sold,2);assert.equal(paid.reserved,0);assert.equal(paid.openIncidents,0);
+  assert.equal((await request('dashboard',{token:null})).status,401);
+  assert.equal((await request('dashboard',{token:await token(ownerSubject,{aal:'aal1'})})).status,403);
+  assert.equal((await request('dashboard',{token:staffToken})).status,200);
+  assert.ok((await db.query("SELECT 1 FROM sorteos.audit_logs WHERE action='OPERATIONS_SUMMARY_READ' AND entity_id=$1",[c.raffle])).rowCount);
+});
+
+test('M5 cierre exige pausa, versión actual y cero holds; conserva reservas y permite conciliación posterior',async()=>{
+  const c=await order(2);
+  const getVersion=async()=>Number((await db.query('SELECT version FROM sorteos.raffles WHERE id=$1',[c.raffle])).rows[0].version);
+  const close=async(version?:number)=>request(`raffles/${c.raffle}/close`,{method:'POST',body:{expectedVersion:version??await getVersion()}});
+  assert.equal((await close()).status,409);
+  const hold=await fetch(base+'/api/v1/checkout-holds',{method:'POST',headers:{Origin:origin,Cookie:c.cookie,'Idempotency-Key':randomUUID(),'Content-Type':'application/json'},body:JSON.stringify({raffleId:c.raffle,quantity:1})});assert.equal(hold.status,201);const holdId=(await hold.json()).holdId;
+  assert.equal((await request(`raffles/${c.raffle}/pause`,{method:'POST',body:{}})).status,200);
+  const blocked=await close();assert.equal(blocked.status,409);assert.equal((await blocked.json()).error.code,'ACTIVE_HOLDS_EXIST');
+  await assert.rejects(()=>db.query("UPDATE sorteos.raffles SET status='CLOSED' WHERE id=$1",[c.raffle]));
+  assert.equal((await fetch(base+`/api/v1/checkout-holds/${holdId}`,{method:'DELETE',headers:{Origin:origin,Cookie:c.cookie}})).status,200);
+  assert.equal((await close(1)).status,409);
+  const version=await getVersion();assert.equal((await request(`raffles/${c.raffle}/close`,{method:'POST',body:{expectedVersion:version},token:staffToken})).status,403);
+  const staff=(await db.query('SELECT id FROM sorteos.admin_users WHERE auth_user_id=$1',[staffSubject])).rows[0];
+  const claims=(await jwtVerify(staffToken,keys.publicKey)).payload;
+  await assert.rejects(()=>app.get(DatabaseService).transaction(async client=>{
+    await app.get(FinancialAuthorization).authorize(client,{id:staff.id,authUserId:staffSubject,role:'ADMIN'},{sessionId:String(claims.session_id),aal:'aal2',mfaAt:Number(claims.iat)},randomUUID());
+    await client.query("UPDATE sorteos.raffles SET status='CLOSED' WHERE id=$1",[c.raffle]);
+  }),error=>String((error as {code:string}).code)==='P0501');
+  assert.equal((await close(version)).status,200);assert.deepEqual(await counts(c),{available:8,reserved:2,sold:0});
+  assert.equal((await fetch(base+'/api/v1/orders/'+c.orderCode,{headers:{Cookie:c.cookie}})).status,200);
+  const rejected=await fetch(base+'/api/v1/checkout-holds',{method:'POST',headers:{Origin:origin,Cookie:c.cookie,'Idempotency-Key':randomUUID(),'Content-Type':'application/json'},body:JSON.stringify({raffleId:c.raffle,quantity:1})});assert.equal(rejected.status,409);
+  await assert.rejects(()=>db.query("UPDATE sorteos.raffles SET status='PAUSED' WHERE id=$1",[c.raffle]));
+  await assert.rejects(()=>db.query("UPDATE sorteos.raffles SET status='DRAWN' WHERE id=$1",[c.raffle]));
+  assert.equal((await action(c,'approve',approval(c))).status,200);assert.deepEqual(await counts(c),{available:8,reserved:0,sold:2});
+});
+
+test('M5 CSV requiere OWNER/MFA, respeta filtros, minimiza datos y audita exportación',async()=>{
+  const c=await order(1),path=`reports/orders.csv?raffleId=${c.raffle}&status=PENDING_REVIEW`;
+  assert.equal((await request(path,{token:null})).status,401);assert.equal((await request(path,{token:staffToken})).status,403);
+  assert.equal((await request(path,{token:await token(ownerSubject,{aal:'aal1'})})).status,403);
+  const response=await request(path);assert.equal(response.status,200);assert.match(response.headers.get('content-type')! ,/text\/csv/);assert.match(response.headers.get('cache-control')!,/no-store/);
+  const csv=await response.text();assert.ok(csv.includes(c.orderCode));assert.ok(csv.includes(String(c.total)));assert.equal(csv.trim().split('\r\n').length,2);
+  for(const privateValue of ['CLIENTE DEMO','5550100','example.invalid',c.reference,'pending/','ticketNumbers',ownerToken])assert.ok(!csv.includes(privateValue));
+  assert.equal((await request('reports/orders.csv?from=2026-11-06T00:00:00Z&to=2026-11-05T00:00:00Z')).status,422);
+  assert.ok((await db.query("SELECT 1 FROM sorteos.audit_logs WHERE action='ORDERS_CSV_EXPORTED' AND entity_id=$1 AND metadata->>'count'='1'",[c.raffle])).rowCount);
+  for(const unsafe of ['=1+1',' +SUM(A1:A2)','-1','@SUM(1)','\t=2','\r=2'])assert.ok(csvCell(unsafe).startsWith('"\''));
+  assert.equal(csvCell('a,"b"'),'"a,""b"""');
+});
+
+test('M5 edición con versión obsoleta no sobrescribe borrador',async()=>{
+  const c=await order(1);await request(`raffles/${c.raffle}/pause`,{method:'POST',body:{}});
+  const version=Number((await db.query('SELECT version FROM sorteos.raffles WHERE id=$1',[c.raffle])).rows[0].version);
+  assert.equal((await request(`raffles/${c.raffle}`,{method:'PATCH',body:{title:'Título M5 vigente',expectedVersion:version}})).status,200);
+  const stale=await request(`raffles/${c.raffle}`,{method:'PATCH',body:{title:'Título obsoleto',expectedVersion:version}});assert.equal(stale.status,409);
+  assert.equal((await db.query('SELECT title FROM sorteos.raffles WHERE id=$1',[c.raffle])).rows[0].title,'Título M5 vigente');
+});
+
+test('M5 fotos propias normalizadas: Auth/MFA, Storage público separado, formato real y publicación',async()=>{
+  async function upload(bytes:Buffer,mime='image/png',auth:string|null=ownerToken){
+    const form=new FormData();form.set('image',new Blob([new Uint8Array(bytes)],{type:mime}),'prueba.png');
+    return fetch(base+'/api/v1/admin/media',{method:'POST',headers:auth?{Authorization:'Bearer '+auth}:{},body:form});
+  }
+  assert.equal((await upload(png,'image/png',null)).status,401);
+  assert.equal((await upload(png,'image/png',await token(ownerSubject,{aal:'aal1'}))).status,403);
+  assert.equal((await upload(Buffer.from('<svg><script/></svg>'),'image/png')).status,422);
+  publicPrizeBucket=false;try{assert.equal((await upload(png)).status,503);}finally{publicPrizeBucket=true;}
+  const response=await upload(png);assert.equal(response.status,201);
+  const media=await response.json() as unknown as {storageKey:string;url:string};assert.match(media.storageKey,/^prizes\/[a-f0-9-]{36}\.webp$/);
+  assert.equal((await sharp(objects.get('media:'+media.storageKey)!).metadata()).format,'webp');assert.ok(!media.url.includes('receipts'));
+  const draft={slug:'m5-media-'+randomUUID(),title:'PREMIO DEMO',description:'Prueba sin valor real',prize:'PREMIO DE PRUEBA',totalTickets:10,ticketPriceMinor:10000,minPurchase:1,maxPurchase:5,rules:'NO TRANSFERIR: DEMO',rulesVersion:'M5',images:[{storageKey:media.storageKey,alt:'Foto propia de prueba',rightsConfirmed:true}]};
+  const created=await request('raffles',{method:'POST',body:draft});assert.equal(created.status,201);const id=(await created.json()).id;
+  assert.equal((await request(`raffles/${id}/publish`,{method:'POST',body:{rulesApproved:true,requirementsReviewed:true,mediaRightsConfirmed:true}})).status,200);
+  assert.throws(()=>parseConfig({NODE_ENV:'production',DEVELOPMENT_LOCAL_MEDIA:'true'}),/Fotos locales/);
 });

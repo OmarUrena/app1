@@ -19,13 +19,13 @@ Se trabaja desde la raíz actual y exclusivamente en `main`, por instrucción ex
 | M2 — Cupo temporal | B3 + F3 | Cantidad, precio servidor, hold protegido y contador sin números | Flujo local comprobado en M4, sin números antes de crear orden |
 | M3 — Orden con comprobante | B4 + F4 | Envío único, archivo privado, números reservados y confirmación protegida | Flujo local comprobado en M4 con adaptador privado Storage de pruebas |
 | M4 — Revisión administrativa | B5 + F5 | Login real, MFA, bandeja, comprobante y conciliación desde la web | Verificado localmente; correcciones remotas aplicadas. Perfil completo de desarrollo sin TOTP autorizado, con plazo y almacenamiento privado local; una orden DEMO pendiente. Storage Supabase para staging/producción pendiente |
-| M5 — Operación diaria | B6 + F6; reutiliza CRUD B2 | Editor de rifas, cierre, indicadores, CSV y consulta protegida | Siguiente hito propuesto, sin implementar |
+| M5 — Operación diaria | B6 + F6; reutiliza CRUD B2 | Editor de rifas, cierre, indicadores, CSV y consulta protegida | Implementación integrada en main; ver ESTADO_M5.md para verificaciones actuales y situación de migración remota |
 | M6 — Robustez conjunta | B7 + F7 | Seguridad, concurrencia, resiliencia, accesibilidad y rendimiento medidos | Pendiente; los controles básicos se aplican desde cada hito |
 | M7 — Staging y salida controlada | B8 + F8 | Entorno aislado, ensayo completo, manuales y revisión de lanzamiento | Pendiente; despliegue y ventas reales requieren autorización |
 
 No reiniciar M0–M3 ni asumir cierres solo por tener código. Los registros de [backend](ESTADO_BACKEND.md) y [frontend](ESTADO_FRONTEND.md#m4) contienen la evidencia especializada. B5 conserva su regresión histórica de 108 pruebas; la sesión M4 posterior verificó las 18 financieras/sesión actuales y el flujo integrado local de M1–M4 (14 pruebas), con Next.js/NestJS/PostgreSQL y protocolos Auth/Storage de prueba. Los resultados históricos no se presentan como pruebas repetidas y el resultado local no certifica servicios remotos.
 
-M4 se implementó sobre B5 y comprobó las dependencias M1–M3 en esta carpeta. El siguiente alcance propuesto es M5, cuando lo solicite el propietario. Permanecen pendientes la configuración/prueba del proyecto real y el ensayo autorizado en staging; no se declara preparación para ventas reales. No ampliar a otros hitos ni ejecutar cambios remotos o despliegues por haber terminado las pruebas locales.
+M4 se implementó sobre B5 y comprobó las dependencias M1–M3 en esta carpeta. M5 fue solicitado el 6 de noviembre y se trabaja en esta misma línea. Permanecen pendientes la configuración/prueba del proyecto real y el ensayo autorizado en staging; no se declara preparación para ventas reales. No ampliar a otros hitos ni ejecutar cambios remotos o despliegues por haber terminado las pruebas locales.
 
 ## M0 — Fundamentos compartidos
 

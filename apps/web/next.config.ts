@@ -9,8 +9,9 @@ const imageBase = process.env.PUBLIC_PRIZE_IMAGE_BASE_URL;
 const remotePatterns: NonNullable<NonNullable<NextConfig["images"]>["remotePatterns"]> = [];
 if (imageBase) {
   const url = new URL(imageBase);
-  if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash || url.pathname === "/" || /[*]/.test(imageBase)) throw new Error("PUBLIC_PRIZE_IMAGE_BASE_URL debe ser un directorio HTTPS público específico, sin comodines.");
-  remotePatterns.push({ protocol: "https", hostname: url.hostname, port: url.port, pathname: `${url.pathname.replace(/\/$/, "")}/**`, search: "" });
+  const local = !["staging", "production"].includes(process.env.APP_ENV ?? "development") && url.protocol === "http:" && ["127.0.0.1", "localhost"].includes(url.hostname) && url.pathname === "/api/v1/media";
+  if ((!local && url.protocol !== "https:") || url.username || url.password || url.search || url.hash || url.pathname === "/" || /[*]/.test(imageBase)) throw new Error("PUBLIC_PRIZE_IMAGE_BASE_URL debe ser un directorio HTTPS público específico, sin comodines.");
+  remotePatterns.push({ protocol: url.protocol === "http:" ? "http" : "https", hostname: url.hostname, port: url.port, pathname: `${url.pathname.replace(/\/$/, "")}/**`, search: "" });
 }
 
 const nextConfig: NextConfig = {

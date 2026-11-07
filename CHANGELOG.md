@@ -1,5 +1,14 @@
 # Changelog
 
+## M5 — Operación diaria integrada — 2026-11-06
+
+- Editor web de rifas con fotos propias normalizadas, reglas/versiones, fechas dominicanas, vista previa y acciones reales de publicación/pausa/reanudación/cierre.
+- Indicadores consistentes y separados de inventario, órdenes pendientes, incidencias e importes confirmados; importes agregados como cadenas de enteros decimales para conservar precisión.
+- Cierre irreversible PAUSED sin holds vigentes, verificado también en PostgreSQL; mantiene reservas y conciliación posterior. No se habilita DRAWN.
+- CSV autorizado solo OWNER, auditado, sin PII/boletos/referencias bancarias, filtros y límite explícito de 10000 filas; protección contra fórmulas.
+- Contrato/cliente OpenAPI 0.6.0, edición web con versión, privacidad/retención, nueva migración y recuperación vacía sin borrar histórico.
+- Evidencia actual, comandos y limitaciones en docs/ESTADO_M5.md; continuidad exclusivamente sobre main.
+
 ## Disponibilidad administrativa durante desarrollo — 2026-11-06
 
 - Sustituido `node --watch` por un supervisor de contenido limitado a fuentes, .env y configuraciones. Los avisos sobre dependencias/metadatos ya no interrumpen el login; una única instancia se reinicia después del cierre del hijo por cambios reales. Se conservó la web en 3000.

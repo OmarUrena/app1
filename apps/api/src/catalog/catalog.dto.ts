@@ -34,7 +34,9 @@ export class CreateRaffleDto {
   @ApiPropertyOptional({type:[RaffleMediaInputDto],maxItems:8}) @IsOptional() @IsArray() @ArrayMaxSize(8)
   @ValidateNested({each:true}) @Type(()=>RaffleMediaInputDto) images?: RaffleMediaInputDto[];
 }
-export class PatchRaffleDto extends PartialType(CreateRaffleDto) {}
+export class PatchRaffleDto extends PartialType(CreateRaffleDto) {
+  @ApiPropertyOptional({type:'integer',minimum:1}) @IsOptional() @IsInt() @Min(1) @Max(2147483647) expectedVersion?:number;
+}
 export class PublicationApprovalDto {
   @ApiProperty({enum:[true]}) @Equals(true) rulesApproved!: boolean;
   @ApiProperty({enum:[true]}) @Equals(true) requirementsReviewed!: boolean;

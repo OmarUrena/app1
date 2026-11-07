@@ -8,7 +8,8 @@ export function publicImage(url: string | null, base?: string): boolean {
   if (!url || !base) return false;
   try {
     const source = new URL(url), allowed = new URL(base);
-    return source.protocol === "https:" && !source.username && !source.password && !source.search && !source.hash && source.origin === allowed.origin && source.pathname.startsWith(allowed.pathname.replace(/\/$/, "") + "/");
+    const local = process.env.NODE_ENV !== "production" && source.protocol === "http:" && ["127.0.0.1", "localhost"].includes(source.hostname) && allowed.pathname === "/api/v1/media";
+    return (source.protocol === "https:" || local) && !source.username && !source.password && !source.search && !source.hash && source.origin === allowed.origin && source.pathname.startsWith(allowed.pathname.replace(/\/$/, "") + "/");
   } catch { return false; }
 }
 export function mapCard(dto: Schemas["RaffleCardDto"], imageBase?: string): RaffleSummary {

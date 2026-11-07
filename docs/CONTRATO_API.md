@@ -389,8 +389,52 @@ Errores B5 adicionales: 401 SESSION_REVOKED; 403 MFA_REQUIRED o
 ADMIN_ACCESS_REVOKED; 422 AMOUNT_MISMATCH, DUPLICATE_REVIEW_REQUIRED,
 RECONCILIATION_REQUIRED o INVALID_DATE_RANGE; 409 INVALID_ORDER_STATE;
 503 AUTH_UNAVAILABLE/STORAGE_UNAVAILABLE. Falta de rol OWNER: 403 FORBIDDEN.
-Las rutas de cierre, dashboard y exportación de la tabla anterior corresponden
-a B6; su inclusión en el plan no implica que estén implementadas.
+### Operación diaria — M5 (OpenAPI 0.6.0)
+
+Implementados `GET /admin/dashboard`, `GET /admin/raffles/:id/summary`,
+`POST /admin/raffles/:id/close` y `GET /admin/reports/orders.csv`.
+Requieren JWT real, allowlist activa, sesión vigente y MFA reciente (o la capacidad
+temporal de desarrollo ya autorizada); cierre y exportación solo OWNER.
+
+Dashboard/resumen: `{total,available,held,reserved,sold,asOf,confirmedAmountMinor,
+pendingAmountMinor,pendingOrders,openIncidents,activeRaffles}`. Los importes son
+**cadenas de enteros decimales en centavos DOP**, sin redondeo JS; conteos enteros.
+Ingreso confirmado suma órdenes PAID; pendiente incluye PENDING_REVIEW,
+UNDER_REVIEW y NEEDS_RESOLUTION. Incidencias incluye OPEN y UNDER_REVIEW, también
+las vinculadas a holds sin orden. Cifras en una instantánea REPEATABLE READ.
+HELD vencidos cuentan disponibles; RESERVED no vence.
+
+Cierre recibe `{expectedVersion}` obligatorio. Exige PAUSED y cero holds ACTIVE
+con `expires_at > now()`. Conflictos 409: CLOSE_REQUIRES_PAUSE, ACTIVE_HOLDS_EXIST,
+CONCURRENT_MODIFICATION. PostgreSQL verifica nuevamente bajo bloqueo de rifa y
+exige contexto financiero. Cierre irreversible: rechaza nuevos holds/envíos;
+mantiene órdenes y revisión posterior. No declara resultado, libera reservas
+ni habilita DRAWN.
+
+CSV acepta filtros `status`, `raffleId`, `from`, `to` (fechas con zona). No pagina:
+máximo 10000 filas; excederlo devuelve 422 EXPORT_TOO_LARGE sin truncar. Columnas:
+codigo_orden, rifa (slug), estado, cantidad, total_centavos_DOP, creada_UTC.
+Excluye contactos, identidad, boletos, referencias bancarias, archivos y tokens.
+UTF-8, comillas RFC4180, CRLF y protección contra fórmulas; attachment y no-store.
+Se auditan cantidad y filtros no sensibles. Solo OWNER puede descargar.
+
+`POST /admin/media`: multipart `image`, máximo 5 MiB, JPG/PNG/WebP/AVIF real,
+máximo 20 millones de píxeles. La API normaliza WebP sin metadatos, genera clave
+UUID sin sobrescritura y devuelve `{storageKey,url}` para images de creación/
+edición. Bucket público de premios separado del privado de comprobantes.
+Auth/MFA preceden al multipart; se revalida autorización antes de auditar y se
+compensa el archivo si falla. 503 MEDIA_UNAVAILABLE; 422 INVALID_MEDIA.
+Adaptador DEVELOPMENT_LOCAL_MEDIA explícito solo loopback development/test;
+`GET /media/:id` sirve exclusivamente sus fotos y devuelve 404 fuera de ese modo.
+
+PATCH /admin/raffles/:id admite `expectedVersion`; la web siempre lo envía.
+Numeración inmutable desde creación; precio bloqueado tras la primera pre-reserva,
+aunque venza. Editar exige DRAFT/PAUSED, borra aprobaciones y requiere nuevas
+confirmaciones para reanudar. No existe borrado de rifas/histórico contable.
+
+Se reutiliza GET /orders/:code con cookie de cliente: el código nunca basta.
+La confirmación web actualiza estado; perder sesión conduce a asistencia por
+canal verificado, sin búsqueda abierta por teléfono/correo ni OTP simulado.
 
 ## Matriz compacta de estados
 

@@ -5,9 +5,15 @@ import { AdminClientError, adminFetch, adminMessage } from "@/features/admin/cli
 import { localTransferTime, parseMinor, type AdminOrder } from "@/features/admin/types";
 import { readAdminEnvironment, localLoginTest, adminLoginDestination } from "@/lib/config";
 import { LoginForm } from "@/features/admin/auth";
+import { aggregateMoney } from "@/features/admin/operations";
 vi.mock("@/lib/use-hydrated", () => ({ useHydrated: () => false }));
 vi.mock("@/features/admin/client", async importOriginal => ({ ...await importOriginal<typeof import("@/features/admin/client")>(), adminFetch: vi.fn() }));
 const order = { id: "11111111-1111-4111-8111-111111111111", orderCode: "RF-TEST-PRIVATE", status: "PENDING_REVIEW", version: 7, totalMinor: 10025, quantity: 1, duplicateReferenceCount: 0, duplicateReceiptCount: 0 } as AdminOrder;
+test("agregados monetarios conservan centavos por encima del rango entero seguro JS", () => {
+  expect(aggregateMoney("900719925474099312")).toBe("RD$ 9,007,199,254,740,993.12");
+  expect(aggregateMoney("1")).toBe("RD$ 0.01");
+  expect(aggregateMoney("0")).toBe("RD$ 0.00");
+});
 beforeAll(() => { HTMLDialogElement.prototype.showModal = function () { this.setAttribute("open", ""); }; HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); }; });
 
 test("prueba de login sin TOTP solo rige en desarrollo loopback hasta su vencimiento", () => {

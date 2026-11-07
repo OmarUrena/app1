@@ -1,0 +1,67 @@
+test('M5: editor, imágenes propias, compra, cierre, conciliación, indicadores y CSV conectados',{timeout:360000},async(t)=>{
+  const {chromium,expect}=m4Playwright,fs=require('node:fs'),path=require('node:path');
+  // Compile shared client chunks before opening tabs: next dev can reload an existing
+  // page while another route is first compiled. This is harness setup, not a retry.
+  const warmed=await Promise.allSettled(['/rifas/no-existe','/rifas/no-existe/participar','/orden/confirmacion','/admin','/admin/rifas/nueva','/admin/rifas/'+randomUUID(),'/admin/reportes','/admin/api/raffles'].map(route=>globalThis.fetch(origin+route,{signal:AbortSignal.timeout(30000)})));
+  for(const result of warmed){assert.equal(result.status,'fulfilled');if(result.status==='fulfilled')assert.ok([200,401,404].includes(result.value.status));}
+  const browser=await chromium.launch(),context=await browser.newContext({viewport:{width:1280,height:900}}),page=await context.newPage();
+  const buyer=await browser.newContext({viewport:{width:390,height:844}}),purchase=await buyer.newPage();
+  page.setDefaultTimeout(15000);purchase.setDefaultTimeout(15000);
+  const screenshots=path.join(m4Workspace,'docs/frontend/screenshots/m5');fs.mkdirSync(screenshots,{recursive:true});
+  let raffleId:string,code:string,orderId:string;
+  const slug='m5-'+randomUUID();
+  async function login(view:any,email='owner@example.invalid'){
+    await view.goto(origin+'/admin/login');await view.getByLabel('Correo administrativo').fill(email);await view.getByLabel('Contraseña',{exact:true}).fill(m4Password);await view.getByRole('button',{name:'Iniciar sesión',exact:true}).click();await view.waitForURL('**/admin/mfa');await view.getByLabel('Código de autenticación').fill('123456');await view.getByRole('button',{name:'Verificar código',exact:true}).click();await view.waitForURL('**/admin/ordenes');
+  }
+  async function transition(name:string){await page.getByRole('button',{name,exact:true}).click();const dialog=page.getByRole('dialog');for(const check of await dialog.getByRole('checkbox').all())await check.check();await dialog.getByRole('button',{name:'Confirmar '+name.toLowerCase(),exact:true}).click();return dialog;}
+  try{
+    await t.test('login real, alta web con imagen normalizada, vista previa y publicación con aprobación',async()=>{
+      await login(page);await page.getByRole('navigation',{name:'Administración'}).getByRole('link',{name:'Rifas',exact:true}).click();await page.getByRole('link',{name:'Crear rifa',exact:true}).click();
+      await page.getByLabel('Título',{exact:true}).fill('RIFA DEMO M5');await page.getByLabel('Identificador de la página').fill(slug);await page.getByLabel('Descripción',{exact:true}).fill('Prueba integrada sin premio ni transferencia reales.');await page.getByLabel('Premio',{exact:true}).fill('PREMIO DEMO M5');await page.getByLabel('Reglas de la rifa').fill('SOLO DEMOSTRACIÓN M5. NO TRANSFERIR DINERO REAL.');
+      await page.getByLabel('Añadir fotografía propia').setInputFiles({name:'foto-propia.png',mimeType:'image/png',buffer:png});await page.getByLabel('Descripción de foto 1').waitFor();await page.getByLabel('Tengo derechos para publicar esta foto.').check();
+      await page.getByRole('button',{name:'Vista previa',exact:true}).click();await page.getByText('Vista previa · no publica la rifa',{exact:true}).waitFor();
+      await page.getByRole('button',{name:'Guardar borrador y cambios',exact:true}).click();await page.waitForURL(/\/admin\/rifas\/[a-f0-9-]{36}$/);raffleId=page.url().split('/').pop()!;
+      await expect(page.getByLabel('Cantidad total de números')).toBeDisabled();await expect(page.getByLabel('Precio por número en RD$')).toBeEnabled();
+      await transition('Publicar rifa');await page.getByRole('link',{name:'Ver página pública',exact:true}).waitFor();
+      await transition('Pausar rifa');await expect(page.getByLabel('Descripción',{exact:true})).toBeEnabled();await page.getByLabel('Descripción',{exact:true}).fill('Descripción DEMO M5 actualizada, sin transferencia real.');await page.getByRole('button',{name:'Guardar borrador y cambios',exact:true}).click();await page.getByText('Rifa actualizada.',{exact:true}).waitFor();await transition('Reanudar rifa');await page.getByRole('link',{name:'Ver página pública',exact:true}).waitFor();
+      await purchase.goto(origin+'/rifas/'+slug);await purchase.getByRole('heading',{name:'RIFA DEMO M5',exact:true}).waitFor();
+      await expect(purchase.locator('.gallery-main img')).toBeVisible();
+      const image=await buyer.request.get(await purchase.locator('.gallery-main img').getAttribute('src'));assert.equal(image.status(),200);assert.equal(image.headers()['cross-origin-resource-policy'],'cross-origin');
+      await expect.poll(()=>purchase.locator('.gallery-main img').evaluate((img:any)=>img.naturalWidth)).toBeGreaterThan(0);
+      const publicRow=await fetch(base+'/api/v1/raffles/'+slug);assert.equal(publicRow.status,200);
+      await page.screenshot({path:path.join(screenshots,'editor-desktop.png'),fullPage:true});
+    });
+    if(!raffleId)throw new Error('No se creó la rifa; detener los pasos dependientes.');
+    await t.test('pre-reserva vigente bloquea cierre; pausa permite enviar orden con comprobante',async()=>{
+      await purchase.getByRole('link',{name:'Participar',exact:true}).click();await purchase.waitForURL('**/participar');
+      await purchase.getByLabel('Cantidad de boletos',{exact:true}).fill('2');
+      await purchase.getByRole('button',{name:'Consultar y reservar cupo temporal'}).click();await purchase.getByText('Cupo reservado temporalmente',{exact:true}).waitFor();
+      await transition('Pausar rifa');await page.getByRole('button',{name:'Cerrar rifa',exact:true}).waitFor();
+      const dialog=await transition('Cerrar rifa');await dialog.getByText('Hay pre-reservas vigentes.',{exact:false}).waitFor();await dialog.getByRole('button',{name:'Volver sin cambiar'}).click();
+      await purchase.getByLabel('Nombre completo',{exact:true}).fill('CLIENTE DEMO M5');await purchase.getByLabel('Teléfono con código de país').fill('+1 (809) 555-0100');await purchase.getByLabel('Correo electrónico',{exact:true}).fill('m5-demo@example.invalid');await purchase.getByLabel('Cuenta a la que transferiste').selectOption(bankId);await purchase.getByLabel('Referencia bancaria',{exact:true}).fill('REF-DEMO-M5-NO-REAL');await purchase.getByLabel('Fecha y hora de la transferencia',{exact:true}).fill(new Date(Date.now()-14460000).toISOString().slice(0,16));await purchase.getByRole('checkbox').check();await purchase.getByLabel('Imagen JPG/PNG o PDF',{exact:true}).setInputFiles({name:'comprobante-demo.png',mimeType:'image/png',buffer:png});await purchase.getByRole('button',{name:'Enviar orden y comprobante'}).click();await purchase.waitForURL('**/orden/confirmacion');
+      const row=(await db.query('SELECT id,order_code,ticket_quantity FROM sorteos.orders WHERE raffle_id=$1',[raffleId])).rows[0];code=row.order_code;orderId=row.id;assert.equal(row.ticket_quantity,2);
+      await transition('Cerrar rifa');await page.getByText('Ventas cerradas.',{exact:false}).waitFor();
+      await page.getByRole('button',{name:'Actualizar cifras'}).click();await page.getByText('Hay 1 órdenes pendientes',{exact:false}).waitFor();
+      const summary=await (await request('raffles/'+raffleId+'/summary')).json() as any;assert.equal(summary.reserved,2);assert.equal(summary.pendingAmountMinor,'20000');assert.equal(summary.confirmedAmountMinor,'0');
+      await expect(page.getByLabel('Precio por número en RD$')).toBeDisabled();
+      const hold=await buyer.request.post(base+'/api/v1/checkout-holds',{headers:{Origin:origin,'Idempotency-Key':randomUUID()},data:{raffleId,quantity:1}});assert.equal(hold.status(),409);
+    });
+    if(!orderId)throw new Error('No se creó la orden; detener los pasos dependientes.');
+    await t.test('conciliación después del cierre, consulta protegida y totales confirmados',async()=>{
+      await page.goto(origin+'/admin/ordenes/'+orderId);await page.getByRole('button',{name:'Aprobar pago',exact:true}).click();const dialog=page.getByRole('dialog');await dialog.getByLabel('Importe verificado en RD$').fill('200');await dialog.getByLabel('Fecha y hora del ingreso').fill(new Date(Date.now()-14460000).toISOString().slice(0,16));await dialog.getByLabel('Referencia de confirmación bancaria').fill('CONFIRMACION-DEMO-M5');await dialog.getByLabel('Nota de verificación').fill('Ingreso de prueba confirmado sin transferencia real.');await dialog.getByLabel('Confirmo que verifiqué').check();await dialog.getByLabel('Revisé las posibles').check();await dialog.getByRole('button',{name:'Revisar decisión',exact:true}).click();await dialog.getByRole('button',{name:'Confirmar decisión',exact:true}).click();await expect(dialog).not.toBeVisible();
+      await purchase.reload();await purchase.getByRole('heading',{name:'Pago confirmado.',exact:true}).waitFor();
+      assert.equal((await globalThis.fetch(base+'/api/v1/orders/'+code)).status,401);
+      const summary=await (await request('raffles/'+raffleId+'/summary')).json() as any;assert.equal(summary.confirmedAmountMinor,'20000');assert.equal(summary.pendingAmountMinor,'0');assert.equal(summary.sold,2);assert.equal(summary.available,98);
+      await page.goto(origin+'/admin');await page.getByText('RD$ 200.00',{exact:true}).waitFor();await page.screenshot({path:path.join(screenshots,'resumen-desktop.png'),fullPage:true});
+      await page.setViewportSize({width:390,height:844});await page.screenshot({path:path.join(screenshots,'resumen-movil.png'),fullPage:true});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+      const AxeBuilder=m4WebRequire('@axe-core/playwright').default;const axe=await new AxeBuilder({page}).analyze();assert.deepEqual(axe.violations.filter((v:any)=>['critical','serious'].includes(v.impact)).map((v:any)=>({id:v.id,nodes:v.nodes.map((n:any)=>n.target)})),[]);
+    });
+    await t.test('exportación descargable sin PII, CSRF rechazado y autorización también en API',async()=>{
+      await page.goto(origin+'/admin/reportes');await page.getByLabel('ID de rifa',{exact:true}).fill(raffleId);const downloaded=page.waitForEvent('download');await page.getByRole('button',{name:'Descargar CSV',exact:true}).click();const download=await downloaded,csv=fs.readFileSync(await download.path(),'utf8');assert.ok(csv.includes(code));assert.ok(!csv.includes('m5-demo@example.invalid'));assert.ok(!csv.includes('CLIENTE DEMO'));assert.equal(csv.trim().split('\r\n').length,2);
+      assert.equal((await context.request.patch(origin+'/admin/api/raffles/'+raffleId,{headers:{Origin:'https://untrusted.invalid'},data:{title:'NO'}})).status(),403);
+      assert.equal((await context.request.post(origin+'/admin/api/raffles/'+raffleId+'/arbitrary',{headers:{Origin:origin},data:{}})).status(),404);
+      assert.equal((await request('reports/orders.csv',{token:staffToken})).status,403);
+      assert.ok((await db.query("SELECT 1 FROM sorteos.audit_logs WHERE action='ORDERS_CSV_EXPORTED' AND entity_id=$1",[raffleId])).rowCount);
+    });
+  }finally{await context.close();await buyer.close();await browser.close();}
+});

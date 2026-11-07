@@ -403,4 +403,14 @@ main:focus { outline: none; }
 .admin-history { padding-left: 24px; }
 .admin-history li { padding-block: 16px; border-bottom: 1px solid var(--line); }
 .admin-signal { color: var(--accent); }
+.admin-metrics, .admin-photo-grid { display: grid; gap: 20px; margin-block: 24px; }
+.admin-metrics strong { display: block; font-size: clamp(1.25rem, 3vw, 2rem); color: var(--accent); overflow-wrap: anywhere; }
+.admin-inventory { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.admin-inventory dd { font-size: 1.6rem; margin: 8px 0 0; }
+.raffle-form textarea { display: block; width: 100%; margin-top: 8px; padding: 12px; border: 1px solid var(--control); border-radius: 10px; color: var(--ink); background: var(--paper); resize: vertical; }
+.raffle-form :disabled { opacity: .65; }
+.admin-photo-grid img { width: 100%; height: auto; max-height: 260px; object-fit: contain; }
+.admin-photo-grid > div { min-width: 0; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius); }
+.raffle-preview { margin-block: 24px; overflow-wrap: anywhere; }
+@media (min-width: 768px) { .admin-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); } .admin-inventory { grid-template-columns: repeat(5, minmax(0, 1fr)); } .admin-photo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (min-width: 768px) { .admin-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } .admin-order-list, .admin-detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

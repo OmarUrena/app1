@@ -17,6 +17,7 @@
     "test:checkout:live": "node tests/integration/run-b3-browser.mjs",
     "test:orders:live": "node tests/integration/run-b4-browser.mjs",
     "test:admin:live": "node tests/integration/run-m4-browser.mjs",
+    "test:operations:live": "node tests/integration/run-m5-browser.mjs",
     "api:generate": "pnpm --filter @sorteos/api-client generate",
     "api:check-catalog": "node scripts/check-catalog-contract.mjs"
   },

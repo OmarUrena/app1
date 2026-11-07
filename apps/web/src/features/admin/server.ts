@@ -75,13 +75,13 @@ export function sameOrigin(request: NextRequest) {
   const expected = process.env.WEB_ORIGIN || `${secure() ? "https:" : request.nextUrl.protocol}//${request.headers.get("host") ?? request.nextUrl.host}`;
   if (request.headers.get("origin") !== expected || request.headers.get("sec-fetch-site") === "cross-site") throw new AdminError("FORBIDDEN", 403);
 }
-export async function jsonBody(request: NextRequest): Promise<Record<string, unknown>> {
+export async function jsonBody(request: NextRequest, maxBytes = 8192): Promise<Record<string, unknown>> {
   if (!request.headers.get("content-type")?.startsWith("application/json")) throw new AdminError("INVALID_REQUEST", 400);
   const reader = request.body?.getReader();
   if (!reader) throw new AdminError("INVALID_REQUEST", 400);
   const chunks: Uint8Array[] = []; let size = 0;
   try {
-    while (true) { const { done, value } = await reader.read(); if (done) break; size += value.byteLength; if (size > 8192) { await reader.cancel(); throw new AdminError("INVALID_REQUEST", 413); } chunks.push(value); }
+    while (true) { const { done, value } = await reader.read(); if (done) break; size += value.byteLength; if (size > maxBytes) { await reader.cancel(); throw new AdminError("INVALID_REQUEST", 413); } chunks.push(value); }
     const body: unknown = JSON.parse(Buffer.concat(chunks).toString("utf8"));
     if (!body || typeof body !== "object" || Array.isArray(body)) throw new Error();
     return body as Record<string, unknown>;

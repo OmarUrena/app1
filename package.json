@@ -25,6 +25,7 @@
     "test:orders": "npm run test:orders --workspace @sorteos/api",
     "test:payments": "npm run test:payments --workspace @sorteos/api",
     "test:m4": "npm run test:admin:live --workspace @sorteos/web",
+    "test:m5": "npm run test:operations:live --workspace @sorteos/web",
     "db:migrate:local": "npm run db:migrate:local --workspace @sorteos/api",
     "db:seed:demo": "npm run db:seed:demo --workspace @sorteos/api",
     "admin:provision:local": "npm run admin:provision:local --workspace @sorteos/api",

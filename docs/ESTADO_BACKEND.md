@@ -1,8 +1,10 @@
 # Estado del backend
 
+M5: editor integrado con CRUD existente, indicadores consistentes, cierre con regla PostgreSQL, fotos normalizadas y CSV auditado implementados. Resultados actuales y límites remotos en [ESTADO_M5.md](ESTADO_M5.md); los informes que siguen conservan evidencia histórica.
+
 Consolidación documental y revisión B5: 2026-11-05. Fuente única de estado del backend; conserva los informes históricos de B0–B4 y añade la verificación B5.
 
-**Coordinación vigente:** seguir [PLAN_DESARROLLO.md](PLAN_DESARROLLO.md), con backend y frontend en una sola sesión. M4 (B5 + F5) se implementó y verificó localmente, incluidas las dependencias M1–M3; el siguiente hito propuesto es M5 (B6 + F6). Las recomendaciones históricas de avanzar por capas no sustituyen este orden. La prueba local no certifica el proyecto remoto.
+**Coordinación vigente:** seguir [PLAN_DESARROLLO.md](PLAN_DESARROLLO.md), con backend y frontend en una sola sesión. M5 (B6 + F6) se implementa sobre M4; [ESTADO_M5.md](ESTADO_M5.md) registra las verificaciones actuales y la migración pendiente. Las recomendaciones históricas de avanzar por capas no sustituyen este orden. La prueba local no certifica el proyecto remoto.
 
 ## M4 — Integración administrativa web
 

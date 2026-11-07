@@ -1,8 +1,10 @@
 # Estado del frontend
 
+M5: resumen, editor/listado de rifas, fotografías propias, acciones de publicación/cierre y reportes conectados a NestJS. Consulta de cliente protegida reutilizada. Ver [ESTADO_M5.md](ESTADO_M5.md) para verificaciones actuales y límites; lo que sigue es histórico.
+
 Consolidación documental: 2026-11-05. Fuente única de estado del frontend; reúne los informes de F0 y F1 y referencia las entregas F2–F4 integradas sin eliminar sus evidencias, incidencias ni pendientes.
 
-**Coordinación vigente:** seguir [PLAN_DESARROLLO.md](PLAN_DESARROLLO.md), con backend y frontend en una sola sesión y carpeta. M4 (B5 + F5) está implementado y verificado localmente, incluyendo comprobación de M1–M3. El siguiente hito propuesto es M5. Las indicaciones históricas sobre ramas/worktrees por capa ya no son el modo de trabajo vigente. La verificación local no certifica el proyecto remoto.
+**Coordinación vigente:** seguir [PLAN_DESARROLLO.md](PLAN_DESARROLLO.md), con backend y frontend en una sola sesión y carpeta. M5 integra operación diaria sobre M4; [ESTADO_M5.md](ESTADO_M5.md) registra resultados actuales y límites remotos. Las indicaciones históricas sobre ramas/worktrees por capa ya no son el modo de trabajo vigente. La verificación local no certifica el proyecto remoto.
 
 ## M4
 

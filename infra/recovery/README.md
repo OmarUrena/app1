@@ -81,3 +81,6 @@ Para recuperar fases anteriores, revertir en orden B5 → B4 → B3 → B2.
 Las pruebas comprueban la conservación de factores Auth y la reaplicación.
 No vaciar órdenes, auditoría o ledger para habilitar el down; con datos usar
 una migración correctiva. Este procedimiento no autoriza operaciones remotas.
+## M5
+
+Aplicar `m5-down-empty.sql` solo en instalación vacía y dentro de transacción antes de recuperar B5. Reparar la versión M5 mediante CLI oficial después del COMMIT. Con datos se rechaza: conservar respaldo e implementar corrección hacia adelante. Nunca borrar órdenes o auditoría para pasar la comprobación. El cierre no se revierte ni se liberan reservas como operación de recuperación.

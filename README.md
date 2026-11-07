@@ -1,6 +1,32 @@
 # App Sorteos — paquete de implementación progresiva para Codex
 
-## Rama única: main
+## M5: administración de rifas y operación diaria
+
+En `/admin`, el resumen separa ingresos confirmados y pendientes; `/admin/rifas`
+permite crear/editar borradores, subir fotos propias, previsualizar y publicar,
+pausar, reanudar o cerrar. `/admin/reportes` descarga CSV auditado sin datos del
+comprador, solo para el propietario. La consulta del cliente sigue en
+`/orden/confirmacion` y requiere su cookie protegida.
+
+Cerrar exige pausar y esperar las pre-reservas vigentes. Conserva todas las
+órdenes y permite conciliarlas después; no sortea ni publica ganadores.
+Numeración inmutable; precio bloqueado tras la primera pre-reserva.
+
+Fotos: `SUPABASE_STORAGE_KEY` solo en API y bucket público `PUBLIC_RAFFLE_BUCKET`
+separado del bucket privado de comprobantes. La web configura su directorio
+HTTPS en `PUBLIC_PRIZE_IMAGE_BASE_URL`. Para probar localmente sin Storage remoto:
+API `DEVELOPMENT_LOCAL_MEDIA=true`; web `PUBLIC_PRIZE_IMAGE_BASE_URL=http://127.0.0.1:3001/api/v1/media`.
+Reiniciar Next al cambiar esta base. Se rechaza el adaptador local en staging/producción.
+
+Migración nueva `20261106232520_operations_m5.sql`; no se modifican migraciones
+anteriores. Ver [estado y verificación M5](docs/ESTADO_M5.md),
+[política de cierre y reportes](docs/decisions/0020-daily-operations.md).
+
+Prueba integrada aislada:
+`powershell -NoProfile -File scripts/test-backend-local.ps1 -PasswordAuthentication -Port 54346 -TestScript test:m5`.
+Requiere los navegadores Playwright; no ejecutarla contra datos compartidos.
+
+## Política de rama
 
 El proyecto se desarrolla exclusivamente en `main`, desde esta carpeta. Backend, frontend y documentación se guardan juntos en commits de esa rama. No crear ramas por fase, por capa ni worktrees adicionales. Las referencias a `feat/*` en informes históricos se conservan para trazabilidad. Decisión: [ADR 0013](docs/decisions/0013-main-only.md).
 

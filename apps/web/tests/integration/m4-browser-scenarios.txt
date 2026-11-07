@@ -95,7 +95,7 @@ test('M4: web, API, PostgreSQL, JWT/JWKS y adaptadores locales Auth/Storage', {t
     });
     await t.test('versión obsoleta impide sobrescritura y exige actualizar detalle',async()=>{
       const c=await order();await visit(c);const dialog=await prepared('Aprobar pago');await approvalForm(dialog,c);
-      assert.equal((await action(c,'start-review',{})).status,200);await dialog.getByRole('button',{name:'Revisar decisión',exact:true}).click();await dialog.getByRole('button',{name:'Confirmar decisión',exact:true}).click();await dialog.getByText('Otro administrador modificó la orden.',{exact:false}).waitFor();await expect(dialog.getByRole('button',{name:'Reintentar misma decisión'})).toBeDisabled();
+      assert.equal((await action(c,'start-review',{})).status,200);await dialog.getByRole('button',{name:'Revisar decisión',exact:true}).click();await dialog.getByRole('button',{name:'Confirmar decisión',exact:true}).click();await dialog.getByText('Otro administrador modificó el recurso.',{exact:false}).waitFor();await expect(dialog.getByRole('button',{name:'Reintentar misma decisión'})).toBeDisabled();
       await dialog.getByRole('button',{name:'Actualizar detalle antes de decidir'}).click();await expect(dialog).not.toBeVisible();await page.getByText(c.orderCode,{exact:true}).filter({visible:true}).waitFor();assert.deepEqual(await counts(c),{available:7,reserved:3,sold:0});
     });
     await t.test('respuesta perdida conserva clave y payload, sin aprobación duplicada',async()=>{

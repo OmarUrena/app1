@@ -22,7 +22,7 @@ export function AdminFrame({ session, children }: { session: AdminSession; child
     window.addEventListener("pageshow", restored);
     return () => { clearInterval(interval); clearTimeout(deadline); document.removeEventListener("visibilitychange", focus); window.removeEventListener("pageshow", restored); };
   }, [session.mfaVerifiedUntil, session.developmentAccessUntil]);
-  return <>{session.developmentAccessUntil && <Alert title="Prueba de desarrollo sin TOTP">Acceso temporal hasta {formatDate(session.developmentAccessUntil)}. Usa únicamente datos y comprobantes DEMO; no realices transferencias bancarias.</Alert>}<div className="admin-toolbar"><Link href="/admin/ordenes" prefetch={false}>Órdenes y revisión</Link><span>Permiso: {session.role === "OWNER" ? "Propietario" : "Revisor"}</span><LogoutButton /></div>{children}</>;
+  return <>{session.developmentAccessUntil && <Alert title="Prueba de desarrollo sin TOTP">Acceso temporal hasta {formatDate(session.developmentAccessUntil)}. Usa únicamente datos y comprobantes DEMO; no realices transferencias bancarias.</Alert>}<div className="admin-toolbar"><nav className="admin-toolbar" aria-label="Administración"><Link href="/admin" prefetch={false}>Resumen</Link><Link href="/admin/rifas" prefetch={false}>Rifas</Link><Link href="/admin/ordenes" prefetch={false}>Órdenes y revisión</Link><Link href="/admin/reportes" prefetch={false}>Reportes</Link></nav><span>Permiso: {session.role === "OWNER" ? "Propietario" : "Revisor"}</span><LogoutButton /></div>{children}</>;
 }
 
 export function OrdersList() {

@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { components, paths } from "@sorteos/api-client";
+import { operationRoute, proxyOperation } from "@/features/admin/operations-proxy";
 import { AdminError, backendClient, checked, failure, identity, jsonBody, privateHeaders, restoredAuth, sameOrigin, saveSession } from "@/features/admin/server";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 async function handle(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   try {
-    if (request.method === "POST") sameOrigin(request);
+    if (["POST", "PATCH"].includes(request.method)) sameOrigin(request);
     if (request.headers.get("sec-fetch-site") === "cross-site") throw new AdminError("FORBIDDEN", 403);
     const { path } = await context.params;
     const [, id = "", operation = ""] = path;
@@ -14,11 +15,13 @@ async function handle(request: NextRequest, context: { params: Promise<{ path: s
     const isDetail = request.method === "GET" && path.length === 2 && path[0] === "orders" && uuid.test(id);
     const isReceipt = request.method === "GET" && path.length === 3 && path[0] === "payment-reports" && uuid.test(id) && operation === "receipt";
     const isAction = request.method === "POST" && path.length === 3 && path[0] === "orders" && uuid.test(id) && ["start-review", "approve", "request-resolution", "cancel"].includes(operation);
-    if (!isList && !isSession && !isDetail && !isReceipt && !isAction) throw new AdminError("NOT_FOUND", 404);
+    const isOperation = operationRoute(request.method, path);
+    if (!isList && !isSession && !isDetail && !isReceipt && !isAction && !isOperation) throw new AdminError("NOT_FOUND", 404);
     const { session, changed } = await restoredAuth();
     const admin = await identity(session.access_token);
     if (admin.mfaRequired) throw new AdminError("MFA_REQUIRED", 403);
     const client = backendClient(session.access_token);
+    if (isOperation) { const response = await proxyOperation(request, path, client); if (changed) saveSession(response, session); return response; }
     let data: unknown;
     if (isSession) data = admin;
     if (isList) {
@@ -54,3 +57,4 @@ async function handle(request: NextRequest, context: { params: Promise<{ path: s
 }
 export const GET = handle;
 export const POST = handle;
+export const PATCH = handle;

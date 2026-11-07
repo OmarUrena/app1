@@ -30,6 +30,7 @@ export interface AppConfig {
   developmentMfaToken?:string;
   developmentMfaUntil?:string;
   developmentLocalReceipts:boolean;
+  developmentLocalMedia:boolean;
 }
 
 export const APP_CONFIG = Symbol('APP_CONFIG');
@@ -57,6 +58,9 @@ export function parseConfig(env: NodeJS.ProcessEnv): AppConfig {
   const developmentMfaToken=env.ADMIN_DEVELOPMENT_MFA_TOKEN||undefined;
   const developmentMfaUntil=env.ADMIN_DEVELOPMENT_MFA_UNTIL||undefined;
   const developmentLocalReceipts=boolean(env.DEVELOPMENT_LOCAL_RECEIPTS,false,'DEVELOPMENT_LOCAL_RECEIPTS');
+  const developmentLocalMedia=boolean(env.DEVELOPMENT_LOCAL_MEDIA,false,'DEVELOPMENT_LOCAL_MEDIA');
+  if(developmentLocalMedia&&(deployed||!['127.0.0.1','localhost','::1','[::1]'].includes(env.HOST??'127.0.0.1')))
+    throw new Error('Fotos locales solo permitidas en desarrollo loopback');
   if(developmentLocalReceipts&&(deployed||!['127.0.0.1','localhost','::1','[::1]'].includes(env.HOST??'127.0.0.1')))
     throw new Error('Comprobantes locales solo permitidos en desarrollo loopback');
   if(developmentMfaToken||developmentMfaUntil){
@@ -76,7 +80,7 @@ export function parseConfig(env: NodeJS.ProcessEnv): AppConfig {
         || (deployed && url.protocol !== 'https:');
     } catch { return true; }
   })) throw new Error('Configuración inválida: CORS_ORIGINS');
-  if((developmentMfaToken||developmentLocalReceipts)&&corsOrigins.some(origin=>{
+  if((developmentMfaToken||developmentLocalReceipts||developmentLocalMedia)&&corsOrigins.some(origin=>{
     const url=new URL(origin);return url.protocol!=='http:'||!['127.0.0.1','localhost','[::1]'].includes(url.hostname);
   }))throw new Error('Excepcion MFA requiere origenes web loopback');
   const swaggerEnabled = boolean(env.SWAGGER_ENABLED, !deployed, 'SWAGGER_ENABLED');
@@ -139,7 +143,7 @@ export function parseConfig(env: NodeJS.ProcessEnv): AppConfig {
     holdSweepMs:integer(env.HOLD_SWEEP_MS,30000,'HOLD_SWEEP_MS',3600000),
     abuseHashKey,
     receiptBucket,storageKey,receiptMaxBytes:integer(env.RECEIPT_MAX_BYTES,5242880,'RECEIPT_MAX_BYTES',10485760),
-    developmentMfaToken,developmentMfaUntil,developmentLocalReceipts,
+    developmentMfaToken,developmentMfaUntil,developmentLocalReceipts,developmentLocalMedia,
   };
 }
 

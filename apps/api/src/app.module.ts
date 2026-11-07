@@ -1,4 +1,7 @@
 import { DynamicModule, Module } from '@nestjs/common';
+import { OperationsController } from './operations/operations.controller';
+import { OperationsService } from './operations/operations.service';
+import { MediaController } from './catalog/media.controller';
 import { CheckoutController } from './checkout/checkout.controller';
 import { CheckoutService } from './checkout/checkout.service';
 import { MulterModule } from '@nestjs/platform-express';
@@ -27,11 +30,11 @@ export class AppModule {
       module: AppModule,
       imports: [ThrottlerModule.forRoot([{ ttl: config.rateTtlMs, limit: config.rateLimit }]),
         MulterModule.register({limits:{fileSize:config.receiptMaxBytes,files:1,fields:9,parts:10,fieldNameSize:64,fieldSize:512}})],
-      controllers: [HealthController,PublicRafflesController,PublicBankAccountsController,AdminRafflesController,CheckoutController,OrdersController,PaymentsController,AdminSessionController],
+      controllers: [MediaController,OperationsController,HealthController,PublicRafflesController,PublicBankAccountsController,AdminRafflesController,CheckoutController,OrdersController,PaymentsController,AdminSessionController],
       providers: [
         { provide: APP_CONFIG, useValue: config }, DatabaseService,AdminGuard,CatalogService,MediaService,CheckoutService,
         OrdersService,ReceiptService,PrivateStorageService,OrderUploadGuard,UploadCapacityInterceptor,
-        PaymentsService,FinancialAuthorization,FinancialGuard,
+        OperationsService,PaymentsService,FinancialAuthorization,FinancialGuard,
         { provide: APP_GUARD, useClass: ThrottlerGuard },
       ],
     };
