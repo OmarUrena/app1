@@ -1,5 +1,12 @@
 # Changelog
 
+## Migración M5 autorizada — 2026-11-06
+
+- Aplicada únicamente `20261106232520_operations_m5` en Supabase tras autorización expresa, con respaldo y hashes verificados. Nueve migraciones y dry-run sin pendientes.
+- Verificados trigger de cierre, función invoker sin ejecución pública, metadata de auditoría y permisos runtime. Conservadas 17 tablas RLS, una orden y su número reservado.
+- Consultas M5 bajo sorteos_runtime en transacción de solo lectura: inventario coherente, dinero entero y metadata accesible. API ready 200, login web 200 y protección administrativa anónima 401. Asesores sin avisos nuevos.
+- Detalle y límites en docs/ESTADO_M5.md. No se renovó la ventana temporal MFA ya vencida ni se alteraron pagos/rifas para realizar la comprobación.
+
 ## M5 — Operación diaria integrada — 2026-11-06
 
 - Editor web de rifas con fotos propias normalizadas, reglas/versiones, fechas dominicanas, vista previa y acciones reales de publicación/pausa/reanudación/cierre.

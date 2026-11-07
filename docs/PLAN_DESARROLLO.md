@@ -19,7 +19,7 @@ Se trabaja desde la raíz actual y exclusivamente en `main`, por instrucción ex
 | M2 — Cupo temporal | B3 + F3 | Cantidad, precio servidor, hold protegido y contador sin números | Flujo local comprobado en M4, sin números antes de crear orden |
 | M3 — Orden con comprobante | B4 + F4 | Envío único, archivo privado, números reservados y confirmación protegida | Flujo local comprobado en M4 con adaptador privado Storage de pruebas |
 | M4 — Revisión administrativa | B5 + F5 | Login real, MFA, bandeja, comprobante y conciliación desde la web | Verificado localmente; correcciones remotas aplicadas. Perfil completo de desarrollo sin TOTP autorizado, con plazo y almacenamiento privado local; una orden DEMO pendiente. Storage Supabase para staging/producción pendiente |
-| M5 — Operación diaria | B6 + F6; reutiliza CRUD B2 | Editor de rifas, cierre, indicadores, CSV y consulta protegida | Implementación integrada en main; ver ESTADO_M5.md para verificaciones actuales y situación de migración remota |
+| M5 — Operación diaria | B6 + F6; reutiliza CRUD B2 | Editor de rifas, cierre, indicadores, CSV y consulta protegida | Verificado localmente y migración Supabase aplicada con autorización; nueve versiones sin pendientes. Ver ESTADO_M5.md para evidencia y límites de staging/Storage remoto |
 | M6 — Robustez conjunta | B7 + F7 | Seguridad, concurrencia, resiliencia, accesibilidad y rendimiento medidos | Pendiente; los controles básicos se aplican desde cada hito |
 | M7 — Staging y salida controlada | B8 + F8 | Entorno aislado, ensayo completo, manuales y revisión de lanzamiento | Pendiente; despliegue y ventas reales requieren autorización |
 

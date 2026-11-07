@@ -4,7 +4,7 @@ M5: editor integrado con CRUD existente, indicadores consistentes, cierre con re
 
 Consolidación documental y revisión B5: 2026-11-05. Fuente única de estado del backend; conserva los informes históricos de B0–B4 y añade la verificación B5.
 
-**Coordinación vigente:** seguir [PLAN_DESARROLLO.md](PLAN_DESARROLLO.md), con backend y frontend en una sola sesión. M5 (B6 + F6) se implementa sobre M4; [ESTADO_M5.md](ESTADO_M5.md) registra las verificaciones actuales y la migración pendiente. Las recomendaciones históricas de avanzar por capas no sustituyen este orden. La prueba local no certifica el proyecto remoto.
+**Coordinación vigente:** seguir [PLAN_DESARROLLO.md](PLAN_DESARROLLO.md), con backend y frontend en una sola sesión. M5 (B6 + F6) se implementa sobre M4; [ESTADO_M5.md](ESTADO_M5.md) registra las pruebas locales y la migración remota autorizada, aplicada y verificada. Las recomendaciones históricas de avanzar por capas no sustituyen este orden. La prueba local no certifica todos los servicios remotos.
 
 ## M4 — Integración administrativa web
 
