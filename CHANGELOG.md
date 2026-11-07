@@ -1,5 +1,10 @@
 # Changelog
 
+## Acceso administrativo fuera de la navegación pública — 2026-11-07
+
+- Retirados los enlaces a Administración de la cabecera, el menú móvil y el pie del sitio público. El panel conserva su acceso directo en /admin/login.
+- Verificado con lint/typecheck web y Chromium local en escritorio/móvil: cero enlaces administrativos en /rifas y acceso directo al login con HTTP 200.
+
 ## Administración con estructura empresarial — 2026-11-06
 
 - Layout independiente del sitio público: navegación lateral, área de trabajo clara, títulos sans serif, controles legibles y menú móvil propio. El catálogo conserva sus URLs y presentación dentro de app/(public).
